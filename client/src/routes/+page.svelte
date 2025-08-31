@@ -103,6 +103,12 @@
     ];
 </script>
 
-{#each posts as post}
-    <Post {...post} />
-{/each}
+<div
+    class="flex-1 overflow-auto flex flex-col p-2 scroll-container scrollbar-thin"
+>
+    <div class="py-2">
+        {#each posts as post}
+            <Post {...post} />
+        {/each}
+    </div>
+</div>
