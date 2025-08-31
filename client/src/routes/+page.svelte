@@ -1,5 +1,8 @@
-<script>
+<script lang="ts">
     import Post from "$lib/components/Post.svelte";
+    import MessageBox from "$lib/components/MessageBox.svelte";
+    import { onMount } from "svelte";
+
     let posts = [
         {
             avatar: "https://i.pinimg.com/736x/90/dc/8f/90dc8f98920f6028b3015689415380f8.jpg",
@@ -101,10 +104,25 @@
             date: "2025/08/26 13:11:12",
         },
     ];
+
+    let messageBoxHeight = 0;
+    let postsContainer: HTMLDivElement;
+
+    function scrollToBottom() {
+        if (postsContainer) {
+            postsContainer.scrollTop = postsContainer.scrollHeight;
+        }
+    }
+
+    onMount(() => {
+        scrollToBottom();
+    });
 </script>
 
 <div
-    class="flex-1 overflow-auto flex flex-col p-2 scroll-container scrollbar-thin"
+    bind:this={postsContainer}
+    class="flex-1 overflow-auto flex flex-col-reverse space-y-reverse p-2 scroll-container scrollbar-thin"
+    style="padding-bottom: {messageBoxHeight + 16}px;"
 >
     <div class="py-2">
         {#each posts as post}
@@ -112,3 +130,5 @@
         {/each}
     </div>
 </div>
+
+<MessageBox onResize={(h) => (messageBoxHeight = h)} />
