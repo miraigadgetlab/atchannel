@@ -6,7 +6,9 @@
     ];
 </script>
 
-<header class="sticky top-0 flex items-center justify-between py-3 px-6">
+<header
+    class="sticky top-0 flex items-center justify-between py-3 px-6 bg-white z-50"
+>
     <div>
         <h1 class="text-xl font-bold text-black">{title}</h1>
     </div>
