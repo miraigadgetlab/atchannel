@@ -1,0 +1,30 @@
+.speech-bubble::before {
+  content: '';
+  position: absolute;
+  left: -15px;
+  top: 42px;
+  border-top: 12px solid transparent;
+  border-bottom: 12px solid transparent;
+  border-right: 20px solid;
+  transform: skewY(50deg);
+}
+
+@media (max-width: 640px) {
+  .speech-bubble::before {
+    left: -8px;
+    top: 35px;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-right: 12px solid;
+  }
+}
+
+.bubble-color-0::before {
+  border-right-color: rgba(220, 252, 231, 1);
+}
+.bubble-color-1::before {
+  border-right-color: rgba(219, 234, 254, 1);
+}
+.bubble-color-2::before {
+  border-right-color: rgba(233, 213, 255, 1);
+}
