@@ -7,7 +7,7 @@ const posts = [
             postNumber: 1,
             name: "Kurisu",
             sage: true,
-            id: "EN5001",
+            ID: "EN5001",
             text:
                 "@channel why are we wasting time on jellied bananas again? serious question.",
             date: "2025/08/26 13:00:12",
@@ -17,7 +17,7 @@ const posts = [
             postNumber: 2,
             name: "Mayuri",
             sage: false,
-            id: "EN5002",
+            ID: "EN5002",
             text:
                 "bc they wobble and it's cute lol. dunno why u hate fun so much kurisu.",
             date: "2025/08/26 13:01:05",
@@ -27,7 +27,7 @@ const posts = [
             postNumber: 3,
             name: "Daru",
             sage: false,
-            id: "EN5003",
+            ID: "EN5003",
             text:
                 "cope harder, jellied bananas = literal proof of time distortion. normal food doesn’t just do that. checkmate.",
             date: "2025/08/26 13:02:30",
@@ -37,7 +37,7 @@ const posts = [
             postNumber: 4,
             name: "Kurisu",
             sage: true,
-            id: "EN5004",
+            ID: "EN5004",
             text:
                 "bro wtf are you on. it's a side effect from the damn microwave experiments. stop making it sound like alien tech.",
             date: "2025/08/26 13:03:44",
@@ -47,7 +47,7 @@ const posts = [
             postNumber: 5,
             name: "Mayuri",
             sage: false,
-            id: "EN5005",
+            ID: "EN5005",
             text:
                 "okarin actually ate one btw. said texture was cursed af lol.",
             date: "2025/08/26 13:04:51",
@@ -57,7 +57,7 @@ const posts = [
             postNumber: 6,
             name: "Daru",
             sage: false,
-            id: "EN5006",
+            ID: "EN5006",
             text:
                 "lmao imagine risking ur stomach for SCIENCE. giga chad move tbh.",
             date: "2025/08/26 13:06:10",
@@ -67,7 +67,7 @@ const posts = [
             postNumber: 7,
             name: "Okabe",
             sage: false,
-            id: "EN5007",
+            ID: "EN5007",
             text:
                 "FOOLS! you dare mock the sacred fruit of chaos? these bananas are not mere food items. they are the heralds of a distorted reality, proof that we, the chosen few, have bent the laws of causality itself. when the world trembles before the divergence, history will remember this day not as the hour of fear, but the moment mankind took its first step into the abyss. laugh all you want, but know this: the jellied banana is a prophecy made flesh. EL. PSY. KONGROO.",
             date: "2025/08/26 13:08:42",
@@ -77,7 +77,7 @@ const posts = [
             postNumber: 8,
             name: "Kurisu",
             sage: true,
-            id: "EN5008",
+            ID: "EN5008",
             text:
                 "holy shit he’s actually roleplaying about bananas again. i can’t deal with this.",
             date: "2025/08/26 13:09:30",
@@ -87,7 +87,7 @@ const posts = [
             postNumber: 9,
             name: "Daru",
             sage: false,
-            id: "EN5009",
+            ID: "EN5009",
             text: "based mad scientist rant. 10/10 would screencap.",
             date: "2025/08/26 13:10:05",
         },
@@ -96,9 +96,8 @@ const posts = [
             postNumber: 10,
             name: "Mayuri",
             sage: false,
-            id: "EN5010",
-            text:
-                "ehhh it’s kinda cool tho. maybe the bananas are trying to tell us smth?",
+            ID: "EN5010",
+            text: "ehhh it’s kinda cool tho. maybe the bananas are trying to tell us smth?",
             date: "2025/08/26 13:11:12",
         },
 ];
@@ -108,7 +107,7 @@ export default function Home() {
     <div className="flex flex-col h-screen scroll-container scrollbar-thin">
       <div>
         {posts.map((post) => (
-          <Post key={post.id} {...post} />
+          <Post key={post.ID} {...post} />
         ))}
       </div>
       <Input />
