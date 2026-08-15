@@ -1,0 +1,17 @@
+# @channel backend container (quadlet)
+[Unit]
+Description=@channel API backend
+Wants=atchannel-pod.service
+After=atchannel-postgres.service atchannel-redis.service atchannel-backend-build.service
+
+[Container]
+Pod=atchannel.pod
+Image=localhost/atchannel-backend
+Environment=APP_ENV=production
+Environment=HTTP_HOST=0.0.0.0
+Environment=HTTP_PORT=8080
+EnvironmentFile=%h/.config/containers/atchannel.env
+Volume=atchannel-uploads:/data/storage
+
+[Install]
+WantedBy=atchannel-pod.service

@@ -1,0 +1,7 @@
+# @channel quadlet network
+[Unit]
+Description=@channel podman network
+
+[Network]
+Subnet=172.20.0.0/16
+Gateway=172.20.0.1

@@ -1,0 +1,20 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "migrations"
+    queries: "internal/db/queries"
+    gen:
+      go:
+        package: "db"
+        out: "internal/db"
+        sql_package: "pgx/v5"
+        emit_json_tags: false
+        emit_interface: true
+        json_tags_case_style: "camel"
+        overrides:
+          - db_type: "uuid"
+            go_type:
+              type: "string"
+          - db_type: "timestamptz"
+            go_type:
+              type: "time.Time"

@@ -1,0 +1,12 @@
+# @channel frontend/nginx container (quadlet)
+[Unit]
+Description=@channel frontend (nginx)
+Wants=atchannel-pod.service
+After=atchannel-backend.service atchannel-frontend-build.service
+
+[Container]
+Pod=atchannel.pod
+Image=localhost/atchannel-frontend
+
+[Install]
+WantedBy=atchannel-pod.service

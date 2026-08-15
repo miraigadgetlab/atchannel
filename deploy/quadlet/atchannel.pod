@@ -1,0 +1,13 @@
+# @channel podman pod unit
+# Install quadlet units into ~/.config/containers/systemd/ (rootless) or
+# /etc/containers/systemd/ (root), then: systemctl --user daemon-reload
+[Unit]
+Description=@channel pod
+
+[Pod]
+Network=atchannel.network
+PublishPort=8081:80
+PublishPort=8443:443
+
+[Install]
+WantedBy=default.target

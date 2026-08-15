@@ -1,0 +1,17 @@
+# @channel one-shot migration container (quadlet)
+# Uses the backend image (contains /usr/local/bin/migrate + /migrations).
+# Run manually after stack changes:
+#   systemctl --user start atchannel-migrate.service
+[Unit]
+Description=@channel database migrations
+Wants=network-online.target
+After=network-online.target atchannel-postgres.service atchannel-backend-build.service
+
+[Container]
+Network=atchannel.network
+Image=localhost/atchannel-backend
+EnvironmentFile=%h/.config/containers/atchannel.env
+Exec=/usr/local/bin/migrate -path /migrations -database $DATABASE_URL up
+
+[Service]
+Type=oneshot

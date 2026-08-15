@@ -1,0 +1,26 @@
+# Logs
+logs
+*.log
+
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+
+# Go
+/backend/bin/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# Secrets / env files
+.env
+.env.*
+!.env.example

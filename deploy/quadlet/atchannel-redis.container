@@ -1,0 +1,19 @@
+# @channel redis container (quadlet)
+[Unit]
+Description=@channel Redis
+Wants=atchannel-pod.service
+After=atchannel-pod.service
+
+[Container]
+Pod=atchannel.pod
+Image=docker.io/library/redis:7-alpine
+Exec=redis-server --appendonly yes
+Volume=atchannel-redisdata:/data
+HealthCmd=/usr/local/bin/redis-cli ping
+HealthInterval=5s
+HealthTimeout=3s
+HealthRetries=10
+AutoUpdate=registry
+
+[Install]
+WantedBy=atchannel-pod.service

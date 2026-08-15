@@ -1,0 +1,44 @@
+# syntax=docker/dockerfile:1
+# @channel backend image. Build context = repo root.
+#   podman-compose: context: .., dockerfile: deploy/Dockerfile.backend
+#   quadlet .build: File=/path/deploy/Dockerfile.backend SetWorkingDirectory=/path
+
+# ---- Build stage ----
+FROM golang:1.26 AS build
+WORKDIR /src
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       libvips-dev pkg-config ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
+
+COPY backend/ ./
+ARG CGO_ENABLED=1
+RUN go build -ldflags="-s -w" -o /out/api ./cmd/api
+
+# golang-migrate CLI for the one-shot migration step
+RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.17.1
+
+# ---- Runtime stage ----
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       libvips42 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /out/api /usr/local/bin/api
+COPY --from=build /go/bin/migrate /usr/local/bin/migrate
+COPY backend/migrations /migrations
+
+ENV HTTP_HOST=0.0.0.0 \
+    HTTP_PORT=8080 \
+    STORAGE_PROVIDER=local \
+    STORAGE_LOCAL_DIR=/data/storage
+
+VOLUME ["/data/storage"]
+
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/api"]

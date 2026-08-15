@@ -1,0 +1,20 @@
+# @channel postgres container (quadlet)
+[Unit]
+Description=@channel PostgreSQL
+Wants=atchannel-pod.service
+After=atchannel-pod.service
+
+[Container]
+Pod=atchannel.pod
+Image=docker.io/library/postgres:17
+Environment=POSTGRES_USER=atchannel
+EnvironmentFile=%h/.config/containers/atchannel.env
+Volume=atchannel-pgdata:/var/lib/postgresql/data
+HealthCmd=/usr/bin/pg_isready -U atchannel -d atchannel
+HealthInterval=5s
+HealthTimeout=3s
+HealthRetries=10
+AutoUpdate=registry
+
+[Install]
+WantedBy=atchannel-pod.service

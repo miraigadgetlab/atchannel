@@ -1,0 +1,12 @@
+# @channel podman build unit for the frontend image
+# Build context = repo root; File points at the shared Dockerfile.
+[Unit]
+Description=Build @channel frontend image
+
+[Build]
+ImageTag=localhost/atchannel-frontend
+File=/opt/atchannel/deploy/Dockerfile.frontend
+SetWorkingDirectory=/opt/atchannel
+
+[Service]
+Type=oneshot
