@@ -1,5 +1,19 @@
 {
+  "rootDirectory": "frontend",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
+    {
+      "source": "/api/(.*)",
+      "destination": "https://atchannel.top/api/$1"
+    },
+    {
+      "source": "/files/(.*)",
+      "destination": "https://atchannel.top/files/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
