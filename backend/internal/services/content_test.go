@@ -119,40 +119,37 @@ func TestReplyToMissingPost(t *testing.T) {
 	}
 }
 
-func TestCreateThreadStripsHTML(t *testing.T) {
+func TestCreateThreadPreservesAngleBrackets(t *testing.T) {
 	threadSvc, _, user := newContentServices(t)
 
 	thread, err := threadSvc.Create(
 		context.Background(),
 		user,
 		"debug",
-		`<script>alert(1)</script>Hi <b>there</b>`,
-		`<img src=x onerror=alert(2)>hello &amp; goodbye`,
+		`#include <stdio.h>`,
+		"hello & goodbye",
 		"",
 	)
 	if err != nil {
 		t.Fatalf("create thread: %v", err)
 	}
-	if thread.Title != "alert(1)Hi there" {
-		t.Fatalf("unexpected sanitized title %q", thread.Title)
+	if thread.Title != `#include <stdio.h>` {
+		t.Fatalf("unexpected title %q", thread.Title)
 	}
 	if thread.Body != "hello & goodbye" {
-		t.Fatalf("unexpected sanitized body %q", thread.Body)
+		t.Fatalf("unexpected body %q", thread.Body)
 	}
 }
 
-func TestReplyStripsHTML(t *testing.T) {
+func TestCreateThreadTrimsWhitespace(t *testing.T) {
 	threadSvc, _, user := newContentServices(t)
-	thread, err := threadSvc.Create(context.Background(), user, "debug", "t", "op", "")
+
+	thread, err := threadSvc.Create(context.Background(), user, "debug", "  padded  ", "body", "")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("create thread: %v", err)
 	}
-	reply, err := threadSvc.Reply(context.Background(), user, thread.ID, `<script>alert(1)</script>reply`, "", nil)
-	if err != nil {
-		t.Fatalf("reply: %v", err)
-	}
-	if reply.Body != "alert(1)reply" {
-		t.Fatalf("unexpected sanitized reply body %q", reply.Body)
+	if thread.Title != "padded" {
+		t.Fatalf("unexpected title %q", thread.Title)
 	}
 }
 

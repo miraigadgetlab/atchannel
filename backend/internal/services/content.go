@@ -5,8 +5,6 @@ import (
 	"errors"
 	"strings"
 
-	"golang.org/x/net/html"
-
 	"github.com/kosero/atchannel/backend/internal/models"
 	"github.com/kosero/atchannel/backend/internal/repositories"
 	"github.com/kosero/atchannel/backend/internal/repositories/postgres"
@@ -31,22 +29,11 @@ const (
 	maxBoardDescLen = 200
 )
 
-// sanitizeText strips all HTML markup and keeps only the raw text content.
-// Content is displayed as plain text, so any stored HTML is rejected at the
-// API boundary to prevent stored XSS in any client that renders it raw.
+// sanitizeText trims whitespace and enforces length limits.
+// XSS prevention is handled by the frontend markdown renderer which strips
+// raw HTML tags, escapes inline code, and sanitizes links.
 func sanitizeText(s string) string {
-	var b strings.Builder
-	z := html.NewTokenizer(strings.NewReader(s))
-	for {
-		tt := z.Next()
-		if tt == html.ErrorToken {
-			break
-		}
-		if tt == html.TextToken {
-			b.Write(z.Text())
-		}
-	}
-	return b.String()
+	return strings.TrimSpace(s)
 }
 
 type BoardService struct {

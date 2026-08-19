@@ -6,6 +6,7 @@ import { Empty, ErrorMessage, Loading } from '../components/Feedback'
 import ComposeBox from '../components/ComposeBox'
 import { useAuth } from '../lib/auth'
 import { formatDate } from '../lib/format'
+import { renderMarkdown } from '../lib/markdown'
 import defaultAvatar from '../assets/avatar.png'
 
 function renderBody(text: string, allPosts: { id: string; body: string; authorName: string }[], imageUrl?: string): React.ReactNode[] {
@@ -15,9 +16,19 @@ function renderBody(text: string, allPosts: { id: string; body: string; authorNa
   let match: RegExpExecArray | null
   let imageUsed = false
 
+  const pushMarkdown = (segment: string, key: string | number) => {
+    if (!segment) return
+    const html = renderMarkdown(segment)
+    if (html.trim()) {
+      parts.push(<div key={key} className="md" dangerouslySetInnerHTML={{ __html: html }} />)
+    } else {
+      parts.push(segment)
+    }
+  }
+
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index))
+      pushMarkdown(text.slice(lastIndex, match.index), `t-${match.index}`)
     }
 
     if (match[1] && imageUrl && !imageUsed) {
@@ -41,7 +52,7 @@ function renderBody(text: string, allPosts: { id: string; body: string; authorNa
     lastIndex = match.index + match[0].length
   }
   if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex))
+    pushMarkdown(text.slice(lastIndex), `t-end`)
   }
   return parts
 }

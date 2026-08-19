@@ -613,7 +613,6 @@ textarea.input {
 }
 
 .post-message {
-  white-space: pre-wrap;
   word-break: break-word;
   font-size: 14px;
   line-height: 1.5;
@@ -623,6 +622,109 @@ textarea.input {
 .post-message a {
   color: var(--link);
   text-decoration: underline;
+}
+
+/* ── Markdown ── */
+
+.md p {
+  margin: 0 0 4px;
+}
+
+.md p:last-child {
+  margin-bottom: 0;
+}
+
+.md strong {
+  font-weight: 700;
+}
+
+.md em {
+  font-style: italic;
+}
+
+.md del {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.md code {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 13px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.md pre {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin: 6px 0;
+  overflow-x: auto;
+}
+
+.md pre code {
+  background: none;
+  padding: 0;
+}
+
+/* ── Syntax highlighting (VS Code Dark+) ── */
+
+.md pre code {
+  color: #d4d4d4;
+}
+
+.md pre code .hljs-keyword,
+.md pre code .hljs-selector-tag,
+.md pre code .hljs-type { color: #569cd6; }
+
+.md pre code .hljs-string,
+.md pre code .hljs-attr,
+.md pre code .hljs-template-variable { color: #ce9178; }
+
+.md pre code .hljs-comment,
+.md pre code .hljs-quote { color: #6a9955; font-style: italic; }
+
+.md pre code .hljs-number,
+.md pre code .hljs-literal { color: #b5cea8; }
+
+.md pre code .hljs-function .hljs-title,
+.md pre code .hljs-title.function_,
+.md pre code .hljs-title { color: #dcdcaa; }
+
+.md pre code .hljs-params { color: #9cdcfe; }
+
+.md pre code .hljs-variable { color: #9cdcfe; }
+
+.md pre code .hljs-meta { color: #c586c0; }
+
+.md pre code .hljs-built_in { color: #4ec9b0; }
+
+.md pre code .hljs-addition { color: #b5cea8; background: rgba(75, 150, 75, 0.15); }
+
+.md pre code .hljs-deletion { color: #ce9178; background: rgba(150, 75, 75, 0.15); }
+
+.md pre code .hljs-regexp { color: #d16969; }
+
+.md pre code .hljs-symbol { color: #b5cea8; }
+
+.md ul,
+.md ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.md li {
+  margin: 2px 0;
+}
+
+.md blockquote {
+  border-left: 3px solid var(--border-strong);
+  margin: 4px 0;
+  padding: 2px 8px;
+  color: var(--text-secondary);
 }
 
 .post-date {
