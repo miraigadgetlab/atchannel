@@ -57,7 +57,7 @@ function renderBody(text: string, allPosts: { id: string; body: string; authorNa
   return parts
 }
 
-function ReplyRef({ refId, body, authorName }: { refId: string; fullId: string; body: string; authorName: string }) {
+function ReplyRef({ refId, fullId, body, authorName }: { refId: string; fullId: string; body: string; authorName: string }) {
   const [show, setShow] = useState(false)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -76,11 +76,23 @@ function ReplyRef({ refId, body, authorName }: { refId: string; fullId: string; 
     timeoutRef.current = setTimeout(() => setShow(false), 150)
   }, [])
 
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const el = document.getElementById(fullId.slice(0, 8))
+    if (!el) return
+    el.scrollIntoView({ block: 'center' })
+    el.classList.remove('post-highlight')
+    void el.offsetWidth
+    el.classList.add('post-highlight')
+    setTimeout(() => el.classList.remove('post-highlight'), 2000)
+  }, [fullId])
+
   return (
     <span
       className="reply-ref"
       onMouseEnter={enter}
       onMouseLeave={leave}
+      onClick={handleClick}
     >
       &gt;&gt;{refId}
       {show && (
@@ -123,7 +135,7 @@ function PostBox({
   const repliedTo = replyToId ? allPosts.find((p) => p.id === replyToId) : null
 
   return (
-    <div className={`post ${isOp ? 'post-op' : 'post-reply'}`}>
+    <div id={id.slice(0, 8)} className={`post ${isOp ? 'post-op' : 'post-reply'}`}>
       <img
         src={authorAvatar || defaultAvatar}
         alt=""
@@ -151,7 +163,16 @@ function PostBox({
         {repliedTo && (
           <div className="reply-in-reply">
             {'\u21A9'} replying to{' '}
-            <a href={`#${replyToId!.slice(0, 8)}`}>
+            <a href={`#${replyToId!.slice(0, 8)}`} onClick={(e) => {
+              e.preventDefault()
+              const el = document.getElementById(replyToId!.slice(0, 8))
+              if (!el) return
+              el.scrollIntoView({ block: 'center' })
+              el.classList.remove('post-highlight')
+              void el.offsetWidth
+              el.classList.add('post-highlight')
+              setTimeout(() => el.classList.remove('post-highlight'), 2000)
+            }}>
               {repliedTo.authorName} (No.{replyToId!.slice(0, 8)})
             </a>
           </div>
