@@ -60,7 +60,7 @@ export default function ComposeBox({
 
     try {
       const uploaded = await api.upload(file)
-      setImageKey(uploaded.key)
+      setImageKey(uploaded.url)
 
       const ta = textareaRef.current
       const marker = `[${file.name}]`

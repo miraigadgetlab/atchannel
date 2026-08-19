@@ -641,6 +641,15 @@ textarea.input {
   display: block;
 }
 
+.post-image-inline {
+  max-width: 300px;
+  max-height: 300px;
+  border: 1px solid var(--border-post);
+  border-radius: 3px;
+  margin: 4px 0;
+  display: block;
+}
+
 /* ── Reply references (>>123) ── */
 
 .reply-ref {

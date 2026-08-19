@@ -8,24 +8,35 @@ import { useAuth } from '../lib/auth'
 import { formatDate } from '../lib/format'
 import defaultAvatar from '../assets/avatar.png'
 
-function renderBody(text: string, allPosts: { id: string; body: string; authorName: string }[]): React.ReactNode[] {
+function renderBody(text: string, allPosts: { id: string; body: string; authorName: string }[], imageUrl?: string): React.ReactNode[] {
   const parts: React.ReactNode[] = []
-  const regex = />>(\w{8,})/g
+  const regex = /(\[[^\s\]]+\.(?:jpg|jpeg|png|gif|webp|bmp|svg)\])|>>(\w{8,})/g
   let lastIndex = 0
   let match: RegExpExecArray | null
+  let imageUsed = false
 
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       parts.push(text.slice(lastIndex, match.index))
     }
-    const refId = match[1]
-    const referenced = allPosts.find((p) => p.id.startsWith(refId))
-    if (referenced) {
+
+    if (match[1] && imageUrl && !imageUsed) {
       parts.push(
-        <ReplyRef key={match.index} refId={refId} fullId={referenced.id} body={referenced.body} authorName={referenced.authorName} />
+        <img key={`img-${match.index}`} src={imageUrl} alt="" className="post-image-inline" />
       )
+      imageUsed = true
+    } else if (match[2]) {
+      const refId = match[2]
+      const referenced = allPosts.find((p) => p.id.startsWith(refId))
+      if (referenced) {
+        parts.push(
+          <ReplyRef key={match.index} refId={refId} fullId={referenced.id} body={referenced.body} authorName={referenced.authorName} />
+        )
+      } else {
+        parts.push(<span key={match.index} className="reply-ref">&gt;&gt;{refId}</span>)
+      }
     } else {
-      parts.push(<span key={match.index} className="reply-ref">&gt;&gt;{refId}</span>)
+      parts.push(match[0])
     }
     lastIndex = match.index + match[0].length
   }
@@ -134,9 +145,11 @@ function PostBox({
             </a>
           </div>
         )}
-        {imageUrl && <img src={imageUrl} alt="" className="post-image" />}
+        {imageUrl && !/\[[^\s\]]+\.(?:jpg|jpeg|png|gif|webp|bmp|svg)\]/.test(body) && (
+          <img src={imageUrl} alt="" className="post-image" />
+        )}
         <div className="post-message">
-          {renderBody(body, allPosts)}
+          {renderBody(body, allPosts, imageUrl)}
         </div>
         <div className="post-date">{formatDate(createdAt)}</div>
       </div>
