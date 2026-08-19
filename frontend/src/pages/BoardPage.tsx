@@ -11,7 +11,7 @@ export default function BoardPage() {
   const slug = board ?? ''
   const { user } = useAuth()
   const [threads, setThreads] = useState<Thread[] | null>(null)
-  const [total, setTotal] = useState(0)
+  const [, setTotal] = useState(0)
   const [error, setError] = useState('')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
@@ -31,9 +31,7 @@ export default function BoardPage() {
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'failed to load threads')
       })
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [slug])
 
   const load = async () => {
@@ -51,7 +49,6 @@ export default function BoardPage() {
       await api.createThread(slug, title.trim(), body.trim())
       setTitle('')
       setBody('')
-      // Reload so the new thread is enriched with author/board aggregates.
       await load()
     } catch (err) {
       setPostError(err instanceof Error ? err.message : 'failed to post thread')
@@ -62,32 +59,36 @@ export default function BoardPage() {
 
   return (
     <>
-      <h1>
-        /{slug}/ threads <span className="muted">({total})</span>
-      </h1>
+      <h1>/{slug}/</h1>
       <ErrorMessage>{error}</ErrorMessage>
 
       {user && (
         <form className="post-form" onSubmit={submit}>
-          <input
-            className="input"
-            placeholder="title"
-            value={title}
-            maxLength={200}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <textarea
-            className="input"
-            placeholder="body"
-            value={body}
-            rows={4}
-            maxLength={4000}
-            onChange={(e) => setBody(e.target.value)}
-          />
+          <div className="form-row">
+            <label>title</label>
+            <input
+              className="input"
+              placeholder="thread title"
+              value={title}
+              maxLength={200}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          <div className="form-row">
+            <label>body</label>
+            <textarea
+              className="input"
+              placeholder="thread body"
+              value={body}
+              rows={4}
+              maxLength={4000}
+              onChange={(e) => setBody(e.target.value)}
+            />
+          </div>
           <ErrorMessage>{postError}</ErrorMessage>
           <div className="form-actions">
             <button type="submit" className="btn btn-primary" disabled={posting}>
-              {posting ? 'posting…' : 'start thread'}
+              {posting ? 'posting...' : 'post'}
             </button>
           </div>
         </form>
@@ -97,14 +98,21 @@ export default function BoardPage() {
       {threads && threads.length === 0 && <Empty>no threads here yet</Empty>}
       {threads && threads.length > 0 && (
         <ul className="thread-list">
-          {threads.map((t) => (
-            <li key={t.id} className="thread-item">
-              <Link to={`/t/${t.id}`} className="thread-title">
+          {threads.map((t, i) => (
+            <li key={t.id} className={`thread-item${t.isPinned ? ' thread-item-pinned' : ''}${t.isLocked ? ' thread-item-locked' : ''}`}>
+              <span className="thread-num">{i + 1}.</span>
+              {t.isPinned && <span className="thread-tag thread-tag-pinned">[PINNED]</span>}
+              {t.isLocked && <span className="thread-tag">[LOCKED]</span>}
+              <Link to={`/t/${t.id}`} className="thread-title-link">
                 {t.title}
               </Link>
-              <div className="muted thread-meta">
-                by {t.authorName} · {t.replyCount} replies · {formatDate(t.bumpedAt)}
-              </div>
+              <span className="thread-replycount">({t.replyCount})</span>
+              {t.body && (
+                <span className="thread-preview">
+                  {t.body.length > 100 ? t.body.slice(0, 100) + '...' : t.body}
+                </span>
+              )}
+              <span className="thread-bumped">{formatDate(t.bumpedAt)}</span>
               {t.imageUrl && (
                 <img src={t.imageUrl} alt="" className="thread-thumb" loading="lazy" />
               )}

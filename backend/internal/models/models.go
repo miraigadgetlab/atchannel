@@ -56,6 +56,7 @@ type Thread struct {
 	BoardSlug     string     `json:"boardSlug"`
 	AuthorName    string     `json:"authorName"`
 	AuthorRole    Role       `json:"authorRole"`
+	AuthorAvatar  string     `json:"authorAvatar"`
 	ReplyCount    int64      `json:"replyCount"`
 	LastReplyAt   *time.Time `json:"lastReplyAt,omitempty"`
 	Bumped        bool       `json:"bumped"`
@@ -77,6 +78,7 @@ type Reply struct {
 
 	AuthorName   string    `json:"authorName"`
 	AuthorRole   Role      `json:"authorRole"`
+	AuthorAvatar string    `json:"authorAvatar"`
 	Deleted      bool      `json:"deleted"`
 }
 

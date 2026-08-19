@@ -129,6 +129,7 @@ SELECT
     b.slug AS board_slug,
     u.username AS author_name,
     u.role AS author_role,
+    u.avatar_url AS author_avatar,
     rr.reply_count,
     rr.last_reply_at,
     (rr.last_reply_at IS NULL OR t.bumped_at >= rr.last_reply_at) AS bumped
@@ -151,22 +152,23 @@ type GetBoardThreadsParams struct {
 }
 
 type GetBoardThreadsRow struct {
-	ID          string
-	BoardID     string
-	UserID      string
-	Title       string
-	Body        string
-	ImageUrl    pgtype.Text
-	IsPinned    bool
-	IsLocked    bool
-	BumpedAt    time.Time
-	CreatedAt   time.Time
-	BoardSlug   string
-	AuthorName  string
-	AuthorRole  string
-	ReplyCount  int64
-	LastReplyAt time.Time
-	Bumped      pgtype.Bool
+	ID           string
+	BoardID      string
+	UserID       string
+	Title        string
+	Body         string
+	ImageUrl     pgtype.Text
+	IsPinned     bool
+	IsLocked     bool
+	BumpedAt     time.Time
+	CreatedAt    time.Time
+	BoardSlug    string
+	AuthorName   string
+	AuthorRole   string
+	AuthorAvatar pgtype.Text
+	ReplyCount   int64
+	LastReplyAt  time.Time
+	Bumped       pgtype.Bool
 }
 
 func (q *Queries) GetBoardThreads(ctx context.Context, arg GetBoardThreadsParams) ([]GetBoardThreadsRow, error) {
@@ -192,6 +194,7 @@ func (q *Queries) GetBoardThreads(ctx context.Context, arg GetBoardThreadsParams
 			&i.BoardSlug,
 			&i.AuthorName,
 			&i.AuthorRole,
+			&i.AuthorAvatar,
 			&i.ReplyCount,
 			&i.LastReplyAt,
 			&i.Bumped,
@@ -232,6 +235,7 @@ SELECT
     b.slug AS board_slug,
     u.username AS author_name,
     u.role AS author_role,
+    u.avatar_url AS author_avatar,
     rr.reply_count,
     rr.last_reply_at,
     (rr.last_reply_at IS NULL OR t.bumped_at >= rr.last_reply_at) AS bumped
@@ -247,22 +251,23 @@ WHERE t.id = $1
 `
 
 type GetThreadByIDRow struct {
-	ID          string
-	BoardID     string
-	UserID      string
-	Title       string
-	Body        string
-	ImageUrl    pgtype.Text
-	IsPinned    bool
-	IsLocked    bool
-	BumpedAt    time.Time
-	CreatedAt   time.Time
-	BoardSlug   string
-	AuthorName  string
-	AuthorRole  string
-	ReplyCount  int64
-	LastReplyAt time.Time
-	Bumped      pgtype.Bool
+	ID           string
+	BoardID      string
+	UserID       string
+	Title        string
+	Body         string
+	ImageUrl     pgtype.Text
+	IsPinned     bool
+	IsLocked     bool
+	BumpedAt     time.Time
+	CreatedAt    time.Time
+	BoardSlug    string
+	AuthorName   string
+	AuthorRole   string
+	AuthorAvatar pgtype.Text
+	ReplyCount   int64
+	LastReplyAt  time.Time
+	Bumped       pgtype.Bool
 }
 
 func (q *Queries) GetThreadByID(ctx context.Context, id string) (GetThreadByIDRow, error) {
@@ -282,6 +287,7 @@ func (q *Queries) GetThreadByID(ctx context.Context, id string) (GetThreadByIDRo
 		&i.BoardSlug,
 		&i.AuthorName,
 		&i.AuthorRole,
+		&i.AuthorAvatar,
 		&i.ReplyCount,
 		&i.LastReplyAt,
 		&i.Bumped,

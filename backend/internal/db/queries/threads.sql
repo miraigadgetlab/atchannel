@@ -28,6 +28,7 @@ SELECT
     b.slug AS board_slug,
     u.username AS author_name,
     u.role AS author_role,
+    u.avatar_url AS author_avatar,
     rr.reply_count,
     rr.last_reply_at,
     (rr.last_reply_at IS NULL OR t.bumped_at >= rr.last_reply_at) AS bumped
@@ -60,6 +61,7 @@ SELECT
     b.slug AS board_slug,
     u.username AS author_name,
     u.role AS author_role,
+    u.avatar_url AS author_avatar,
     rr.reply_count,
     rr.last_reply_at,
     (rr.last_reply_at IS NULL OR t.bumped_at >= rr.last_reply_at) AS bumped

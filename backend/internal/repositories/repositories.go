@@ -31,6 +31,7 @@ type RefreshTokenRepository interface {
 type BoardRepository interface {
 	List(ctx context.Context) ([]models.Board, error)
 	GetBySlug(ctx context.Context, slug string) (*models.Board, error)
+	Create(ctx context.Context, slug, name, description string) (*models.Board, error)
 }
 
 type ThreadRepository interface {

@@ -21,23 +21,22 @@ export default function UserPage() {
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'user not found')
       })
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [username])
 
   return (
     <>
-      <h1>{username}</h1>
       <ErrorMessage>{error}</ErrorMessage>
       {!user && !error && <Loading />}
       {user && (
         <div className="profile">
-          {user.avatarUrl && <img src={user.avatarUrl} alt="" className="avatar" />}
-          {user.bio && <p className="post-body">{user.bio}</p>}
-          <div className="muted">
-            role: {user.role} · joined {formatDate(user.createdAt)}
+          {user.avatarUrl && <img src={user.avatarUrl} alt="" className="avatar-large" />}
+          <div className="post-header profile-header">
+            <span className="post-name">{user.username}</span>
+            <span className="post-seq">role: {user.role}</span>
+            <span className="post-timestamp">joined {formatDate(user.createdAt)}</span>
           </div>
+          {user.bio && <p className="post-body">{user.bio}</p>}
         </div>
       )}
     </>

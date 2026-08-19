@@ -3,6 +3,9 @@ package services
 import (
 	"context"
 	"errors"
+	"strings"
+
+	"golang.org/x/net/html"
 
 	"github.com/kosero/atchannel/backend/internal/models"
 	"github.com/kosero/atchannel/backend/internal/repositories"
@@ -10,16 +13,41 @@ import (
 )
 
 var (
-	ErrBoardNotFound = errors.New("board not found")
-	ErrThreadNotFound = errors.New("thread not found")
-	ErrReplyNotFound  = errors.New("reply not found")
-	ErrThreadLocked   = errors.New("thread is locked")
+	ErrBoardNotFound    = errors.New("board not found")
+	ErrBoardExists      = errors.New("board already exists")
+	ErrInvalidBoardSlug = errors.New("invalid board slug")
+	ErrBoardNameTooLong = errors.New("board name too long")
+	ErrBoardDescTooLong = errors.New("board description too long")
+	ErrThreadNotFound   = errors.New("thread not found")
+	ErrReplyNotFound    = errors.New("reply not found")
+	ErrThreadLocked     = errors.New("thread is locked")
 )
 
 const (
-	maxTitleLength = 200
-	maxBodyLength  = 4000
+	maxTitleLength  = 200
+	maxBodyLength   = 4000
+	maxSlugLength   = 20
+	maxBoardNameLen = 60
+	maxBoardDescLen = 200
 )
+
+// sanitizeText strips all HTML markup and keeps only the raw text content.
+// Content is displayed as plain text, so any stored HTML is rejected at the
+// API boundary to prevent stored XSS in any client that renders it raw.
+func sanitizeText(s string) string {
+	var b strings.Builder
+	z := html.NewTokenizer(strings.NewReader(s))
+	for {
+		tt := z.Next()
+		if tt == html.ErrorToken {
+			break
+		}
+		if tt == html.TextToken {
+			b.Write(z.Text())
+		}
+	}
+	return b.String()
+}
 
 type BoardService struct {
 	boards repositories.BoardRepository
@@ -31,6 +59,39 @@ func NewBoardService(boards repositories.BoardRepository) *BoardService {
 
 func (s *BoardService) List(ctx context.Context) ([]models.Board, error) {
 	return s.boards.List(ctx)
+}
+
+func (s *BoardService) Create(ctx context.Context, slug, name, description string) (*models.Board, error) {
+	slug = strings.ToLower(strings.TrimSpace(slug))
+	name = strings.TrimSpace(name)
+	description = strings.TrimSpace(description)
+
+	if slug == "" || name == "" {
+		return nil, ErrInvalidBoardSlug
+	}
+	if len(slug) > maxSlugLength {
+		return nil, ErrInvalidBoardSlug
+	}
+	if len(name) > maxBoardNameLen {
+		return nil, ErrBoardNameTooLong
+	}
+	if len(description) > maxBoardDescLen {
+		return nil, ErrBoardDescTooLong
+	}
+	for _, c := range slug {
+		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+			return nil, ErrInvalidBoardSlug
+		}
+	}
+
+	board, err := s.boards.Create(ctx, slug, name, description)
+	if err != nil {
+		if errors.Is(err, repositories.ErrBoardExists) {
+			return nil, ErrBoardExists
+		}
+		return nil, err
+	}
+	return board, nil
 }
 
 type ThreadService struct {
@@ -110,6 +171,8 @@ func (s *ThreadService) Create(ctx context.Context, user *models.User, boardSlug
 	} else if err != nil && !errors.Is(err, postgres.ErrNotFound) {
 		return nil, err
 	}
+	title = sanitizeText(title)
+	body = sanitizeText(body)
 	if len(title) > maxTitleLength {
 		return nil, ErrTitleTooLong
 	}
@@ -143,6 +206,7 @@ func (s *ThreadService) Reply(ctx context.Context, user *models.User, threadID, 
 	} else if err != nil && !errors.Is(err, postgres.ErrNotFound) {
 		return nil, err
 	}
+	body = sanitizeText(body)
 	if len(body) > maxBodyLength {
 		return nil, ErrBodyTooLong
 	}
@@ -170,14 +234,12 @@ func (s *ThreadService) Reply(ctx context.Context, user *models.User, threadID, 
 }
 
 func (s *ThreadService) ListReplies(ctx context.Context, threadID string) ([]models.Reply, error) {
-	thread, err := s.threads.GetByID(ctx, threadID)
-	if err != nil {
+	if _, err := s.threads.GetBoardID(ctx, threadID); err != nil {
 		if errors.Is(err, postgres.ErrNotFound) {
 			return nil, ErrThreadNotFound
 		}
 		return nil, err
 	}
-	_ = thread
 	return s.replies.ListByThread(ctx, threadID)
 }
 

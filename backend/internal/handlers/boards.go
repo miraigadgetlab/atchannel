@@ -24,6 +24,26 @@ func (h *BoardHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"boards": boards})
 }
 
+type createBoardRequest struct {
+	Slug        string `json:"slug"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+func (h *BoardHandler) Create(w http.ResponseWriter, r *http.Request) {
+	var req createBoardRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	board, err := h.svc.Create(r.Context(), req.Slug, req.Name, req.Description)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, board)
+}
+
 type ThreadHandler struct {
 	svc   *services.ThreadService
 	users *services.UserService

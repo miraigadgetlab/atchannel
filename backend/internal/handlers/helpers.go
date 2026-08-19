@@ -43,6 +43,14 @@ func writeErr(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusUnauthorized, "invalid refresh token")
 	case errors.Is(err, services.ErrBoardNotFound):
 		writeError(w, http.StatusNotFound, "board not found")
+	case errors.Is(err, services.ErrBoardExists):
+		writeError(w, http.StatusConflict, "board already exists")
+	case errors.Is(err, services.ErrInvalidBoardSlug):
+		writeError(w, http.StatusBadRequest, "invalid board slug; use lowercase letters, numbers, hyphens, or underscores (max 20 chars)")
+	case errors.Is(err, services.ErrBoardNameTooLong):
+		writeError(w, http.StatusBadRequest, "board name too long")
+	case errors.Is(err, services.ErrBoardDescTooLong):
+		writeError(w, http.StatusBadRequest, "board description too long")
 	case errors.Is(err, services.ErrThreadNotFound):
 		writeError(w, http.StatusNotFound, "thread not found")
 	case errors.Is(err, services.ErrReplyNotFound):

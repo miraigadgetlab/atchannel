@@ -15,7 +15,7 @@ type Querier interface {
 	CreateBan(ctx context.Context, arg CreateBanParams) (Ban, error)
 	CreateBoard(ctx context.Context, arg CreateBoardParams) (Board, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
-	CreateReply(ctx context.Context, arg CreateReplyParams) (Reply, error)
+	CreateReply(ctx context.Context, arg CreateReplyParams) (CreateReplyRow, error)
 	CreateReport(ctx context.Context, arg CreateReportParams) (Report, error)
 	CreateThread(ctx context.Context, arg CreateThreadParams) (Thread, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)

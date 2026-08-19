@@ -18,14 +18,11 @@ export default function HomePage() {
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'failed to load boards')
       })
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
   return (
     <>
-      <h1>Welcome to @channel</h1>
       <ErrorMessage>{error}</ErrorMessage>
       {!boards && !error && <Loading />}
       {boards && boards.length === 0 && <Empty>no boards yet</Empty>}
@@ -37,7 +34,7 @@ export default function HomePage() {
                 <span className="board-slug">/{b.slug}/</span>
                 <span className="board-name">{b.name}</span>
               </Link>
-              {b.description && <div className="muted board-desc">{b.description}</div>}
+              {b.description && <div className="board-desc">{b.description}</div>}
             </li>
           ))}
         </ul>

@@ -47,6 +47,19 @@ func (r *InMemoryBoardRepo) GetBySlug(ctx context.Context, slug string) (*models
 	return nil, repositories.ErrNotFound
 }
 
+func (r *InMemoryBoardRepo) Create(ctx context.Context, slug, name, description string) (*models.Board, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, b := range r.boards {
+		if b.Slug == slug {
+			return nil, repositories.ErrBoardExists
+		}
+	}
+	b := models.Board{ID: id(), Slug: slug, Name: name, Description: description, CreatedAt: time.Now()}
+	r.boards = append(r.boards, b)
+	return &b, nil
+}
+
 func (r *InMemoryBoardRepo) Seed(slug, name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

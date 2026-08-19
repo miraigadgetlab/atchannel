@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -49,6 +50,8 @@ func NewRouter(cfg *config.Config, repos Repositories, rdb *redis.Client, st sto
 	// Rate limiters.
 	postLimiter := middleware.NewSlidingWindowLimiter(rdb, time.Minute, 10)
 	refreshLimiter := middleware.NewSlidingWindowLimiter(rdb, time.Minute, 30)
+	// Brute-force protection for credential guessing.
+	loginLimiter := middleware.NewSlidingWindowLimiter(rdb, time.Minute, 10)
 
 	auth := middleware.NewAuth(authSvc)
 
@@ -92,7 +95,7 @@ func NewRouter(cfg *config.Config, repos Repositories, rdb *redis.Client, st sto
 
 		api.Route("/auth", func(authR chi.Router) {
 			authR.Post("/register", authHandler.Register)
-			authR.Post("/login", authHandler.Login)
+			authR.With(loginLimiter.Middleware(ipKey)).Post("/login", authHandler.Login)
 			authR.With(refreshLimiter.Middleware(ipKey)).Post("/refresh", authHandler.Refresh)
 			authR.Post("/logout", authHandler.Logout)
 		})
@@ -106,14 +109,34 @@ func NewRouter(cfg *config.Config, repos Repositories, rdb *redis.Client, st sto
 			admin.Post("/admin/reports/{id}/resolve", adminHandler.ResolveReport)
 			admin.Post("/admin/bans", adminHandler.CreateBan)
 			admin.Get("/admin/bans", adminHandler.ListBans)
+
+			// Admin-only routes (RequireRole checks rank, Mod ≥ Admin is false).
+			admin.With(middleware.RequireRole(models.RoleAdmin)).Post("/admin/boards", boardHandler.Create)
 		})
 	})
 
 	return router
 }
 
+// clientIP extracts the real client IP from proxy headers (X-Forwarded-For,
+// X-Real-IP), falling back to RemoteAddr.  Behind nginx all requests share
+// the same RemoteAddr, so using it directly would collapse every user into
+// one rate-limit bucket.
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if idx := strings.IndexByte(xff, ','); idx > 0 {
+			return strings.TrimSpace(xff[:idx])
+		}
+		return strings.TrimSpace(xff)
+	}
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return strings.TrimSpace(xri)
+	}
+	return r.RemoteAddr
+}
+
 func ipKey(r *http.Request) string {
-	return "ip:" + r.RemoteAddr
+	return "ip:" + clientIP(r)
 }
 
 func ipOrUserKey(kind string) func(r *http.Request) string {
@@ -122,6 +145,6 @@ func ipOrUserKey(kind string) func(r *http.Request) string {
 		if user != "" {
 			return kind + ":user:" + user
 		}
-		return kind + ":ip:" + r.RemoteAddr
+		return kind + ":ip:" + clientIP(r)
 	}
 }

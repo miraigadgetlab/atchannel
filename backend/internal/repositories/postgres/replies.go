@@ -26,14 +26,15 @@ func (r *ReplyRepo) ListByThread(ctx context.Context, threadID string) ([]models
 	replies := make([]models.Reply, 0, len(rows))
 	for _, row := range rows {
 		rp := models.Reply{
-			ID:         row.ID,
-			ThreadID:   row.ThreadID,
-			UserID:     row.UserID,
-			Body:       row.Body,
-			ImageURL:   row.ImageUrl.String,
-			CreatedAt:  row.CreatedAt,
-			AuthorName: row.AuthorName,
-			AuthorRole: models.Role(row.AuthorRole),
+			ID:           row.ID,
+			ThreadID:     row.ThreadID,
+			UserID:       row.UserID,
+			Body:         row.Body,
+			ImageURL:     row.ImageUrl.String,
+			CreatedAt:    row.CreatedAt,
+			AuthorName:   row.AuthorName,
+			AuthorRole:   models.Role(row.AuthorRole),
+			AuthorAvatar: row.AuthorAvatar.String,
 		}
 		if row.ReplyToID.Valid {
 			u := uuid.UUID(row.ReplyToID.Bytes)
@@ -56,14 +57,23 @@ func (r *ReplyRepo) Create(ctx context.Context, threadID, userID, body string, i
 	if err != nil {
 		return nil, err
 	}
-	return &models.Reply{
-		ID:        row.ID,
-		ThreadID:  row.ThreadID,
-		UserID:    row.UserID,
-		Body:      row.Body,
-		ImageURL:  row.ImageUrl.String,
-		CreatedAt: row.CreatedAt,
-	}, nil
+	rp := &models.Reply{
+		ID:           row.ID,
+		ThreadID:     row.ThreadID,
+		UserID:       row.UserID,
+		Body:         row.Body,
+		ImageURL:     row.ImageUrl.String,
+		CreatedAt:    row.CreatedAt,
+		AuthorName:   row.AuthorName,
+		AuthorRole:   models.Role(row.AuthorRole),
+		AuthorAvatar: row.AuthorAvatar.String,
+	}
+	if row.ReplyToID.Valid {
+		u := uuid.UUID(row.ReplyToID.Bytes)
+		s := u.String()
+		rp.ReplyToID = &s
+	}
+	return rp, nil
 }
 
 func (r *ReplyRepo) GetByID(ctx context.Context, id string) (*models.Reply, error) {

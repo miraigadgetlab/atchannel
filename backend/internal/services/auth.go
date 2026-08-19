@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -34,10 +35,25 @@ type AuthService struct {
 	tokens repositories.RefreshTokenRepository
 	cfg    *config.Auth
 	now    func() time.Time
+
+	// dummy hash used to equalize Argon2 timing when a login targets a
+	// non-existent username, preventing user enumeration by response time.
+	dummyOnce sync.Once
+	dummyHash string
+	dummyErr  error
 }
 
 func NewAuthService(users repositories.UserRepository, tokens repositories.RefreshTokenRepository, cfg *config.Auth) *AuthService {
 	return &AuthService{users: users, tokens: tokens, cfg: cfg, now: time.Now}
+}
+
+// ensureDummyHash computes a throwaway Argon2 hash (with the current
+// parameters) once; verifying a password against it costs the same CPU as a
+// real verification.
+func (s *AuthService) ensureDummyHash() {
+	s.dummyOnce.Do(func() {
+		s.dummyHash, s.dummyErr = s.hashPassword("dummy-password-for-timing")
+	})
 }
 
 // --- Password hashing (Argon2id) ---
@@ -136,6 +152,13 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (*mo
 	user, err := s.users.GetByUsername(ctx, username)
 	if err != nil {
 		if errors.Is(err, postgres.ErrNotFound) {
+			// Burn an Argon2 verification so the response time matches a
+			// real (failed) login; otherwise the timing difference reveals
+			// whether the username exists.
+			s.ensureDummyHash()
+			if s.dummyErr == nil {
+				_, _ = s.verifyPassword(password, s.dummyHash)
+			}
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err

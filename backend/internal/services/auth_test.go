@@ -69,6 +69,41 @@ func TestLoginSuccessAndFailure(t *testing.T) {
 	}
 }
 
+func TestLoginTimingEqualizedForUnknownUser(t *testing.T) {
+	svc, _, _ := newAuthService(t)
+	registerUser(t, svc)
+
+	// First call warms the dummy hash so the measured time below is the
+	// real unknown-user verification path.
+	if _, err := svc.Login(context.Background(), "nobody", "supersecret123"); err != services.ErrInvalidCredentials {
+		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+	}
+
+	const samples = 5
+	var known, unknown time.Duration
+	for i := 0; i < samples; i++ {
+		start := time.Now()
+		if _, err := svc.Login(context.Background(), "tester", "wrongpassword"); err != services.ErrInvalidCredentials {
+			t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+		}
+		known += time.Since(start)
+
+		start = time.Now()
+		if _, err := svc.Login(context.Background(), "nobody", "wrongpassword"); err != services.ErrInvalidCredentials {
+			t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+		}
+		unknown += time.Since(start)
+	}
+
+	knownAvg := known / samples
+	unknownAvg := unknown / samples
+	// Both paths must burn comparable Argon2 work; the unknown-user path may
+	// not be dramatically faster than a real failed login.
+	if unknownAvg < knownAvg/5 {
+		t.Fatalf("unknown-user login too fast (known=%v unknown=%v): timing leaks usernames", knownAvg, unknownAvg)
+	}
+}
+
 func TestPasswordHashesAreArgon2idSalted(t *testing.T) {
 	svc, users, _ := newAuthService(t)
 	registerUser(t, svc)

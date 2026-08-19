@@ -40,6 +40,7 @@ export interface Thread {
   boardSlug: string
   authorName: string
   authorRole: Role
+  authorAvatar: string
   replyCount: number
   lastReplyAt?: string
   bumped: boolean
@@ -60,6 +61,7 @@ export interface Reply {
   createdAt: string
   authorName: string
   authorRole: Role
+  authorAvatar: string
   deleted: boolean
 }
 

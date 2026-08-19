@@ -1,10 +1,135 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import type { Reply, Thread } from '../lib/types'
 import { Empty, ErrorMessage, Loading } from '../components/Feedback'
 import { useAuth } from '../lib/auth'
 import { formatDate } from '../lib/format'
+import defaultAvatar from '../assets/avatar.png'
+
+function renderBody(text: string, allPosts: { id: string; body: string; authorName: string }[]): React.ReactNode[] {
+  const parts: React.ReactNode[] = []
+  const regex = />>(\w{8,})/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index))
+    }
+    const refId = match[1]
+    const referenced = allPosts.find((p) => p.id.startsWith(refId))
+    if (referenced) {
+      parts.push(
+        <ReplyRef key={match.index} refId={refId} fullId={referenced.id} body={referenced.body} authorName={referenced.authorName} />
+      )
+    } else {
+      parts.push(<span key={match.index} className="reply-ref">&gt;&gt;{refId}</span>)
+    }
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+  return parts
+}
+
+function ReplyRef({ refId, body, authorName }: { refId: string; fullId: string; body: string; authorName: string }) {
+  const [show, setShow] = useState(false)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [])
+
+  const enter = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    setShow(true)
+  }, [])
+
+  const leave = useCallback(() => {
+    timeoutRef.current = setTimeout(() => setShow(false), 150)
+  }, [])
+
+  return (
+    <span
+      className="reply-ref"
+      onMouseEnter={enter}
+      onMouseLeave={leave}
+    >
+      &gt;&gt;{refId}
+      {show && (
+        <span className="reply-ref-preview" onMouseEnter={enter} onMouseLeave={leave}>
+          <span className="preview-name">{authorName}</span>
+          <span className="preview-body">{body.length > 200 ? body.slice(0, 200) + '...' : body}</span>
+        </span>
+      )}
+    </span>
+  )
+}
+
+function PostBox({
+  id,
+  authorName,
+  authorRole,
+  authorAvatar,
+  body,
+  createdAt,
+  imageUrl,
+  allPosts,
+  isOp,
+  onReply,
+  user,
+}: {
+  id: string
+  authorName: string
+  authorRole: string
+  authorAvatar: string
+  body: string
+  createdAt: string
+  imageUrl: string
+  allPosts: { id: string; body: string; authorName: string }[]
+  isOp?: boolean
+  onReply?: () => void
+  user?: { username: string } | null
+}) {
+  return (
+    <div className={`post ${isOp ? 'post-op' : 'post-reply'}`}>
+      <img
+        src={authorAvatar || defaultAvatar}
+        alt=""
+        className="post-avatar"
+        onError={(e) => { e.currentTarget.src = defaultAvatar }}
+      />
+      <div className="post-content">
+        <div className="post-header-line">
+          <Link to={`/users/${authorName}`} className="post-name">{authorName}</Link>
+          {(authorRole === 'admin' || authorRole === 'mod') && (
+            <span className="post-role">[{authorRole}]</span>
+          )}
+          {onReply && (
+            <button
+              type="button"
+              className="btn-link"
+              onClick={onReply}
+              title={user ? 'reply to this post' : 'log in to reply'}
+            >
+              [reply]
+            </button>
+          )}
+          <a href={`#${id.slice(0, 8)}`} className="post-id">No.{id.slice(0, 8)}</a>
+        </div>
+        {imageUrl && <img src={imageUrl} alt="" className="post-image" />}
+        <div className="post-message">
+          {renderBody(body, allPosts)}
+        </div>
+        <div className="post-date">{formatDate(createdAt)}</div>
+      </div>
+    </div>
+  )
+}
 
 export default function ThreadPage() {
   const { id } = useParams<{ id: string }>()
@@ -32,9 +157,7 @@ export default function ThreadPage() {
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'failed to load thread')
       })
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [threadId])
 
   const load = async () => {
@@ -52,7 +175,6 @@ export default function ThreadPage() {
       await api.reply(threadId, body.trim(), undefined, replyTo ?? undefined)
       setBody('')
       setReplyTo(null)
-      // Reload so the new reply is enriched with author aggregates.
       await load()
     } catch (err) {
       setPostError(err instanceof Error ? err.message : 'failed to post reply')
@@ -61,32 +183,40 @@ export default function ThreadPage() {
     }
   }
 
+  const allPosts = useMemo(() => [
+    ...(thread ? [{ id: thread.id, body: thread.body, authorName: thread.authorName }] : []),
+    ...(replies?.map((r) => ({ id: r.id, body: r.body, authorName: r.authorName })) ?? []),
+  ], [thread, replies])
+
   return (
     <>
-      <Link to={thread ? `/b/${thread.boardSlug}` : '/'} className="muted">
-        ← back to board
+      <Link to={thread ? `/b/${thread.boardSlug}` : '/'} className="back-link">
+        &larr; back to board
       </Link>
       <ErrorMessage>{error}</ErrorMessage>
 
       {!thread && !error && <Loading />}
 
       {thread && (
-        <article className="thread-post">
-          <h2>{thread.title}</h2>
-          {thread.imageUrl && <img src={thread.imageUrl} alt="" className="post-image" />}
-          <p className="post-body">{thread.body}</p>
-          <div className="muted post-meta">
-            by <Link to={`/users/${thread.authorName}`}>{thread.authorName}</Link> ·{' '}
-            {formatDate(thread.createdAt)} {thread.closed && '· locked'}
-          </div>
-        </article>
+        <PostBox
+          id={thread.id}
+          authorName={thread.authorName}
+          authorRole={thread.authorRole}
+          authorAvatar={thread.authorAvatar}
+          body={thread.body}
+          createdAt={thread.createdAt}
+          imageUrl={thread.imageUrl}
+          allPosts={allPosts}
+          isOp
+        />
       )}
 
       {user && !error && thread && !thread.closed && (
         <form className="post-form" onSubmit={submit}>
           {replyTo && (
-            <div className="muted">
-              replying to <button type="button" className="btn-link" onClick={() => setReplyTo(null)}>#{replyTo} (cancel)</button>
+            <div className="reply-to-bar">
+              replying to #{replyTo.slice(0, 8)}{' '}
+              <button type="button" className="btn-link" onClick={() => setReplyTo(null)}>(cancel)</button>
             </div>
           )}
           <textarea
@@ -100,7 +230,7 @@ export default function ThreadPage() {
           <ErrorMessage>{postError}</ErrorMessage>
           <div className="form-actions">
             <button type="submit" className="btn btn-primary" disabled={posting}>
-              {posting ? 'posting…' : 'post reply'}
+              {posting ? 'posting...' : 'post reply'}
             </button>
           </div>
         </form>
@@ -109,27 +239,23 @@ export default function ThreadPage() {
       {!replies && !error && <Loading />}
       {replies && replies.length === 0 && <Empty>no replies yet</Empty>}
       {replies && replies.length > 0 && (
-        <ul className="reply-list">
+        <div className="reply-list">
           {replies.map((r) => (
-            <li key={r.id} className="reply-item">
-              <div className="muted post-meta">
-                <button
-                  type="button"
-                  className="btn-link"
-                  onClick={() => user && setReplyTo(r.id)}
-                  title={user ? 'reply to this post' : 'log in to reply'}
-                >
-                  #{r.id.slice(0, 8)}
-                </button>{' '}
-                by <Link to={`/users/${r.authorName}`}>{r.authorName}</Link> ·{' '}
-                {formatDate(r.createdAt)}
-                {r.replyToId && <> · in reply to #{r.replyToId.slice(0, 8)}</>}
-              </div>
-              {r.imageUrl && <img src={r.imageUrl} alt="" className="post-image" />}
-              <p className="post-body">{r.body}</p>
-            </li>
+            <PostBox
+              key={r.id}
+              id={r.id}
+              authorName={r.authorName}
+              authorRole={r.authorRole}
+              authorAvatar={r.authorAvatar}
+              body={r.body}
+              createdAt={r.createdAt}
+              imageUrl={r.imageUrl}
+              allPosts={allPosts}
+              onReply={() => user && setReplyTo(r.id)}
+              user={user}
+            />
           ))}
-        </ul>
+        </div>
       )}
     </>
   )

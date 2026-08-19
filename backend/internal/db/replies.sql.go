@@ -13,9 +13,24 @@ import (
 )
 
 const createReply = `-- name: CreateReply :one
-INSERT INTO replies (thread_id, user_id, body, image_url, reply_to_id)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, thread_id, user_id, body, image_url, reply_to_id, created_at
+WITH new_reply AS (
+    INSERT INTO replies (thread_id, user_id, body, image_url, reply_to_id)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING *
+)
+SELECT
+    nr.id,
+    nr.thread_id,
+    nr.user_id,
+    nr.body,
+    nr.image_url,
+    nr.reply_to_id,
+    nr.created_at,
+    u.username AS author_name,
+    u.role AS author_role,
+    u.avatar_url AS author_avatar
+FROM new_reply nr
+JOIN users u ON u.id = nr.user_id
 `
 
 type CreateReplyParams struct {
@@ -26,7 +41,20 @@ type CreateReplyParams struct {
 	ReplyToID pgtype.UUID
 }
 
-func (q *Queries) CreateReply(ctx context.Context, arg CreateReplyParams) (Reply, error) {
+type CreateReplyRow struct {
+	ID           string
+	ThreadID     string
+	UserID       string
+	Body         string
+	ImageUrl     pgtype.Text
+	ReplyToID    pgtype.UUID
+	CreatedAt    time.Time
+	AuthorName   string
+	AuthorRole   string
+	AuthorAvatar pgtype.Text
+}
+
+func (q *Queries) CreateReply(ctx context.Context, arg CreateReplyParams) (CreateReplyRow, error) {
 	row := q.db.QueryRow(ctx, createReply,
 		arg.ThreadID,
 		arg.UserID,
@@ -34,7 +62,7 @@ func (q *Queries) CreateReply(ctx context.Context, arg CreateReplyParams) (Reply
 		arg.ImageUrl,
 		arg.ReplyToID,
 	)
-	var i Reply
+	var i CreateReplyRow
 	err := row.Scan(
 		&i.ID,
 		&i.ThreadID,
@@ -43,6 +71,9 @@ func (q *Queries) CreateReply(ctx context.Context, arg CreateReplyParams) (Reply
 		&i.ImageUrl,
 		&i.ReplyToID,
 		&i.CreatedAt,
+		&i.AuthorName,
+		&i.AuthorRole,
+		&i.AuthorAvatar,
 	)
 	return i, err
 }
@@ -87,7 +118,8 @@ SELECT
     r.reply_to_id,
     r.created_at,
     u.username AS author_name,
-    u.role AS author_role
+    u.role AS author_role,
+    u.avatar_url AS author_avatar
 FROM replies r
 JOIN users u ON u.id = r.user_id
 WHERE r.thread_id = $1
@@ -95,15 +127,16 @@ ORDER BY r.created_at ASC
 `
 
 type ListThreadRepliesRow struct {
-	ID         string
-	ThreadID   string
-	UserID     string
-	Body       string
-	ImageUrl   pgtype.Text
-	ReplyToID  pgtype.UUID
-	CreatedAt  time.Time
-	AuthorName string
-	AuthorRole string
+	ID           string
+	ThreadID     string
+	UserID       string
+	Body         string
+	ImageUrl     pgtype.Text
+	ReplyToID    pgtype.UUID
+	CreatedAt    time.Time
+	AuthorName   string
+	AuthorRole   string
+	AuthorAvatar pgtype.Text
 }
 
 func (q *Queries) ListThreadReplies(ctx context.Context, threadID string) ([]ListThreadRepliesRow, error) {
@@ -125,6 +158,7 @@ func (q *Queries) ListThreadReplies(ctx context.Context, threadID string) ([]Lis
 			&i.CreatedAt,
 			&i.AuthorName,
 			&i.AuthorRole,
+			&i.AuthorAvatar,
 		); err != nil {
 			return nil, err
 		}

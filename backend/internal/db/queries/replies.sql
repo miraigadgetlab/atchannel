@@ -8,16 +8,32 @@ SELECT
     r.reply_to_id,
     r.created_at,
     u.username AS author_name,
-    u.role AS author_role
+    u.role AS author_role,
+    u.avatar_url AS author_avatar
 FROM replies r
 JOIN users u ON u.id = r.user_id
 WHERE r.thread_id = $1
 ORDER BY r.created_at ASC;
 
 -- name: CreateReply :one
-INSERT INTO replies (thread_id, user_id, body, image_url, reply_to_id)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, thread_id, user_id, body, image_url, reply_to_id, created_at;
+WITH new_reply AS (
+    INSERT INTO replies (thread_id, user_id, body, image_url, reply_to_id)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING *
+)
+SELECT
+    nr.id,
+    nr.thread_id,
+    nr.user_id,
+    nr.body,
+    nr.image_url,
+    nr.reply_to_id,
+    nr.created_at,
+    u.username AS author_name,
+    u.role AS author_role,
+    u.avatar_url AS author_avatar
+FROM new_reply nr
+JOIN users u ON u.id = nr.user_id;
 
 -- name: GetReplyByID :one
 SELECT id, thread_id, user_id, body, image_url, reply_to_id, created_at

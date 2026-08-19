@@ -11,8 +11,7 @@ import (
 func newContentServices(t *testing.T) (*services.ThreadService, *services.BoardService, *models.User) {
 	t.Helper()
 	boards := NewInMemoryBoardRepo()
-	boards.Seed("a", "Anime")
-	boards.Seed("tech", "Tech")
+	boards.Seed("debug", "Debug")
 
 	users := NewInMemoryUserRepo()
 	user := &models.User{Username: "poster", Email: "p@example.com", Role: models.RoleUser}
@@ -36,15 +35,15 @@ func TestBoardList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(boards) != 2 {
-		t.Fatalf("expected 2 boards, got %d", len(boards))
+	if len(boards) != 1 {
+		t.Fatalf("expected 1 board, got %d", len(boards))
 	}
 }
 
 func TestCreateAndGetThread(t *testing.T) {
 	threadSvc, _, user := newContentServices(t)
 
-	thread, err := threadSvc.Create(context.Background(), user, "a", "Hello world", "First thread", "")
+	thread, err := threadSvc.Create(context.Background(), user, "debug", "Hello world", "First thread", "")
 	if err != nil {
 		t.Fatalf("create thread: %v", err)
 	}
@@ -74,7 +73,7 @@ func TestCreateThreadTitleTooLong(t *testing.T) {
 	for i := range long {
 		long[i] = 'x'
 	}
-	_, err := threadSvc.Create(context.Background(), user, "a", string(long), "b", "")
+	_, err := threadSvc.Create(context.Background(), user, "debug", string(long), "b", "")
 	if err != services.ErrTitleTooLong {
 		t.Fatalf("expected ErrTitleTooLong, got %v", err)
 	}
@@ -82,7 +81,7 @@ func TestCreateThreadTitleTooLong(t *testing.T) {
 
 func TestReplyToThread(t *testing.T) {
 	threadSvc, _, user := newContentServices(t)
-	thread, err := threadSvc.Create(context.Background(), user, "tech", "Thread", "op", "")
+	thread, err := threadSvc.Create(context.Background(), user, "debug", "Thread", "op", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +111,7 @@ func TestReplyUnknownThread(t *testing.T) {
 
 func TestReplyToMissingPost(t *testing.T) {
 	threadSvc, _, user := newContentServices(t)
-	thread, _ := threadSvc.Create(context.Background(), user, "a", "t", "op", "")
+	thread, _ := threadSvc.Create(context.Background(), user, "debug", "t", "op", "")
 	missing := "no-such-reply-id"
 	_, err := threadSvc.Reply(context.Background(), user, thread.ID, "x", "", &missing)
 	if err != services.ErrReplyNotFound {
@@ -120,14 +119,51 @@ func TestReplyToMissingPost(t *testing.T) {
 	}
 }
 
+func TestCreateThreadStripsHTML(t *testing.T) {
+	threadSvc, _, user := newContentServices(t)
+
+	thread, err := threadSvc.Create(
+		context.Background(),
+		user,
+		"debug",
+		`<script>alert(1)</script>Hi <b>there</b>`,
+		`<img src=x onerror=alert(2)>hello &amp; goodbye`,
+		"",
+	)
+	if err != nil {
+		t.Fatalf("create thread: %v", err)
+	}
+	if thread.Title != "alert(1)Hi there" {
+		t.Fatalf("unexpected sanitized title %q", thread.Title)
+	}
+	if thread.Body != "hello & goodbye" {
+		t.Fatalf("unexpected sanitized body %q", thread.Body)
+	}
+}
+
+func TestReplyStripsHTML(t *testing.T) {
+	threadSvc, _, user := newContentServices(t)
+	thread, err := threadSvc.Create(context.Background(), user, "debug", "t", "op", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, err := threadSvc.Reply(context.Background(), user, thread.ID, `<script>alert(1)</script>reply`, "", nil)
+	if err != nil {
+		t.Fatalf("reply: %v", err)
+	}
+	if reply.Body != "alert(1)reply" {
+		t.Fatalf("unexpected sanitized reply body %q", reply.Body)
+	}
+}
+
 func TestListByBoardPagination(t *testing.T) {
 	threadSvc, _, user := newContentServices(t)
 	for i := 0; i < 3; i++ {
-		if _, err := threadSvc.Create(context.Background(), user, "a", "t", "b", ""); err != nil {
+		if _, err := threadSvc.Create(context.Background(), user, "debug", "t", "b", ""); err != nil {
 			t.Fatal(err)
 		}
 	}
-	threads, total, err := threadSvc.ListByBoard(context.Background(), "a", 1, 2)
+	threads, total, err := threadSvc.ListByBoard(context.Background(), "debug", 1, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
