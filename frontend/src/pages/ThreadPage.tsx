@@ -78,6 +78,7 @@ function PostBox({
   body,
   createdAt,
   imageUrl,
+  replyToId,
   allPosts,
   isOp,
   onReply,
@@ -90,11 +91,14 @@ function PostBox({
   body: string
   createdAt: string
   imageUrl: string
+  replyToId?: string
   allPosts: { id: string; body: string; authorName: string }[]
   isOp?: boolean
   onReply?: () => void
   user?: { username: string } | null
 }) {
+  const repliedTo = replyToId ? allPosts.find((p) => p.id === replyToId) : null
+
   return (
     <div className={`post ${isOp ? 'post-op' : 'post-reply'}`}>
       <img
@@ -121,6 +125,14 @@ function PostBox({
           )}
           <a href={`#${id.slice(0, 8)}`} className="post-id">No.{id.slice(0, 8)}</a>
         </div>
+        {repliedTo && (
+          <div className="reply-in-reply">
+            {'\u21A9'} replying to{' '}
+            <a href={`#${replyToId!.slice(0, 8)}`}>
+              {repliedTo.authorName} (No.{replyToId!.slice(0, 8)})
+            </a>
+          </div>
+        )}
         {imageUrl && <img src={imageUrl} alt="" className="post-image" />}
         <div className="post-message">
           {renderBody(body, allPosts)}
@@ -250,6 +262,7 @@ export default function ThreadPage() {
               body={r.body}
               createdAt={r.createdAt}
               imageUrl={r.imageUrl}
+              replyToId={r.replyToId}
               allPosts={allPosts}
               onReply={() => user && setReplyTo(r.id)}
               user={user}
