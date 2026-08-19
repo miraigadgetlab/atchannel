@@ -130,13 +130,17 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Clear the cookie regardless of whether a token was present.
+	sameSite := http.SameSiteStrictMode
+	if h.cfg.CrossOrigin {
+		sameSite = http.SameSiteNoneMode
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     h.cfg.CookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   h.cfg.SecureCookies,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: sameSite,
 		MaxAge:   -1,
 	})
 	w.WriteHeader(http.StatusNoContent)
@@ -149,6 +153,10 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) setRefreshCookie(w http.ResponseWriter, token string) {
+	sameSite := http.SameSiteStrictMode
+	if h.cfg.CrossOrigin {
+		sameSite = http.SameSiteNoneMode
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     h.cfg.CookieName,
 		Value:    token,
@@ -156,7 +164,7 @@ func (h *AuthHandler) setRefreshCookie(w http.ResponseWriter, token string) {
 		Domain:   h.cfg.RefreshCookieDomain,
 		HttpOnly: true,
 		Secure:   h.cfg.SecureCookies,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: sameSite,
 		MaxAge:   int(h.cfg.RefreshTokenTTL.Seconds()),
 		Expires:  time.Now().Add(h.cfg.RefreshTokenTTL),
 	})

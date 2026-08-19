@@ -77,6 +77,7 @@ type Auth struct {
 	ArgonSaltLength          int
 	ArgonKeyLength           uint32
 	SecureCookies            bool
+	CrossOrigin              bool
 	RefreshCookieDomain      string
 	CookieName               string
 }
@@ -134,6 +135,7 @@ func Load() (*Config, error) {
 			ArgonSaltLength:    envInt("ARGON_SALT_LENGTH", 16),
 			ArgonKeyLength:     envUint32("ARGON_KEY_LENGTH", 32),
 			SecureCookies:      envBool("COOKIE_SECURE", false),
+			CrossOrigin:        envBool("CROSS_ORIGIN", false),
 			RefreshCookieDomain: env("REFRESH_COOKIE_DOMAIN", ""),
 			CookieName:         env("REFRESH_COOKIE_NAME", "atch_refresh"),
 		},
