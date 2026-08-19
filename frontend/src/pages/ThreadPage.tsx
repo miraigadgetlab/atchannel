@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import type { Reply, Thread } from '../lib/types'
 import { Empty, ErrorMessage, Loading } from '../components/Feedback'
+import ComposeBox from '../components/ComposeBox'
 import { useAuth } from '../lib/auth'
 import { formatDate } from '../lib/format'
 import defaultAvatar from '../assets/avatar.png'
@@ -150,10 +151,7 @@ export default function ThreadPage() {
   const [thread, setThread] = useState<Thread | null>(null)
   const [replies, setReplies] = useState<Reply[] | null>(null)
   const [error, setError] = useState('')
-  const [body, setBody] = useState('')
-  const [replyTo, setReplyTo] = useState<string | null>(null)
-  const [posting, setPosting] = useState(false)
-  const [postError, setPostError] = useState('')
+  const [replyTo, setReplyTo] = useState<{ id: string; authorName: string } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -178,27 +176,16 @@ export default function ThreadPage() {
     setReplies(res.replies)
   }
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!body.trim()) return
-    setPosting(true)
-    setPostError('')
-    try {
-      await api.reply(threadId, body.trim(), undefined, replyTo ?? undefined)
-      setBody('')
-      setReplyTo(null)
-      await load()
-    } catch (err) {
-      setPostError(err instanceof Error ? err.message : 'failed to post reply')
-    } finally {
-      setPosting(false)
-    }
-  }
-
   const allPosts = useMemo(() => [
     ...(thread ? [{ id: thread.id, body: thread.body, authorName: thread.authorName }] : []),
     ...(replies?.map((r) => ({ id: r.id, body: r.body, authorName: r.authorName })) ?? []),
   ], [thread, replies])
+
+  const replyToTarget = useMemo(() => {
+    if (!replyTo) return null
+    const found = allPosts.find((p) => p.id === replyTo.id)
+    return found ? { id: found.id, authorName: found.authorName } : null
+  }, [replyTo, allPosts])
 
   return (
     <>
@@ -224,28 +211,13 @@ export default function ThreadPage() {
       )}
 
       {user && !error && thread && !thread.closed && (
-        <form className="post-form" onSubmit={submit}>
-          {replyTo && (
-            <div className="reply-to-bar">
-              replying to #{replyTo.slice(0, 8)}{' '}
-              <button type="button" className="btn-link" onClick={() => setReplyTo(null)}>(cancel)</button>
-            </div>
-          )}
-          <textarea
-            className="input"
-            placeholder="reply"
-            value={body}
-            rows={3}
-            maxLength={4000}
-            onChange={(e) => setBody(e.target.value)}
-          />
-          <ErrorMessage>{postError}</ErrorMessage>
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary" disabled={posting}>
-              {posting ? 'posting...' : 'post reply'}
-            </button>
-          </div>
-        </form>
+        <ComposeBox
+          mode="reply"
+          threadId={threadId}
+          replyTo={replyToTarget}
+          onCancelReply={() => setReplyTo(null)}
+          onPosted={load}
+        />
       )}
 
       {!replies && !error && <Loading />}
@@ -264,7 +236,7 @@ export default function ThreadPage() {
               imageUrl={r.imageUrl}
               replyToId={r.replyToId}
               allPosts={allPosts}
-              onReply={() => user && setReplyTo(r.id)}
+              onReply={() => user && setReplyTo({ id: r.id, authorName: r.authorName })}
               user={user}
             />
           ))}

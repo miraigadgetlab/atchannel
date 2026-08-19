@@ -332,7 +332,186 @@ textarea.input {
   vertical-align: middle;
 }
 
-/* ── Post form ── */
+/* ── Compose box ── */
+
+.compose-box {
+  margin: 12px 0;
+  padding: 0;
+  border: 1px solid var(--border-post);
+  background: var(--bg-post);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.compose-field {
+  position: relative;
+  border-bottom: 1px solid var(--border-post);
+}
+
+.compose-field:last-of-type {
+  border-bottom: none;
+}
+
+.compose-input,
+.compose-textarea {
+  font-family: inherit;
+  font-size: 14px;
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  padding: 8px 56px 8px 10px;
+  width: 100%;
+  display: block;
+}
+
+.compose-input:focus,
+.compose-textarea:focus {
+  outline: none;
+  background: #FCFCFC;
+}
+
+.compose-textarea {
+  resize: vertical;
+  min-height: 60px;
+  line-height: 1.5;
+}
+
+.compose-input::placeholder,
+.compose-textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+.compose-char-count {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-size: 11px;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  color: var(--text-secondary);
+  pointer-events: none;
+  user-select: none;
+}
+
+.compose-char-count-warn {
+  color: #B44;
+}
+
+.compose-image-preview {
+  position: relative;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border-post);
+}
+
+.compose-image-preview img {
+  max-width: 160px;
+  max-height: 120px;
+  border: 1px solid var(--border-post);
+  border-radius: 2px;
+  display: block;
+}
+
+.compose-image-remove {
+  position: absolute;
+  top: 4px;
+  left: 170px;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-post);
+  border-radius: 2px;
+  background: var(--bg-post);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 18px;
+  text-align: center;
+  padding: 0;
+}
+
+.compose-image-remove:hover {
+  background: #F0F0F0;
+}
+
+.compose-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border-post);
+  background: #FAFAFA;
+}
+
+.compose-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compose-file-input {
+  display: none;
+}
+
+.compose-attach-btn {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-post);
+  border-radius: 2px;
+  background: var(--bg-post);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.compose-attach-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.compose-attach-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.compose-shortcut-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: "JetBrains Mono", "Courier New", monospace;
+}
+
+.compose-submit {
+  font-size: 13px;
+}
+
+.compose-reply-to {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  background: #F5F5F5;
+  border-bottom: 1px solid var(--border-post);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.compose-reply-to-label strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.compose-reply-to-cancel {
+  font-size: 16px;
+  line-height: 1;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.compose-reply-to-cancel:hover {
+  color: var(--text-primary);
+}
+
+/* ── Post form (legacy, kept for fallback) ── */
 
 .post-form {
   margin: 12px 0;
@@ -341,33 +520,6 @@ textarea.input {
   background: var(--bg-post);
   border-radius: 2px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-}
-
-.post-form .input {
-  margin-bottom: 4px;
-}
-
-.form-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 4px;
-  font-size: 14px;
-}
-
-.form-row label {
-  min-width: 48px;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-.form-row .input {
-  flex: 1;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
 }
 
 /* ── Thread detail / Posts (4chan-style) ── */
