@@ -111,11 +111,10 @@ func threadFromBoardRow(row db.GetBoardThreadsRow) models.Thread {
 		AuthorName:   row.AuthorName,
 		AuthorRole:   models.Role(row.AuthorRole),
 		AuthorAvatar: row.AuthorAvatar.String,
+		AuthorColor:  row.AuthorColor,
 		ReplyCount:   row.ReplyCount,
 		LastReplyAt: &row.LastReplyAt,
 		Bumped:      row.Bumped.Bool,
-		Sticky:      row.IsPinned,
-		Closed:      row.IsLocked,
 		BumpLimit:   false,
 	}
 	return t
@@ -137,11 +136,10 @@ func threadFromThreadRow(row db.GetThreadByIDRow) models.Thread {
 		AuthorName:   row.AuthorName,
 		AuthorRole:   models.Role(row.AuthorRole),
 		AuthorAvatar: row.AuthorAvatar.String,
+		AuthorColor:  row.AuthorColor,
 		ReplyCount:   row.ReplyCount,
 		LastReplyAt: &row.LastReplyAt,
 		Bumped:      row.Bumped.Bool,
-		Sticky:      row.IsPinned,
-		Closed:      row.IsLocked,
 		BumpLimit:   false,
 	}
 	return t

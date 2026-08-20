@@ -21,6 +21,7 @@ type User struct {
 	AvatarURL    string    `json:"avatarUrl"`
 	Bio          string    `json:"bio"`
 	Role         Role      `json:"role"`
+	Color        string    `json:"color"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
@@ -30,6 +31,7 @@ type UserPublic struct {
 	AvatarURL string    `json:"avatarUrl"`
 	Bio       string    `json:"bio"`
 	Role      Role      `json:"role"`
+	Color     string    `json:"color"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -57,14 +59,11 @@ type Thread struct {
 	AuthorName    string     `json:"authorName"`
 	AuthorRole    Role       `json:"authorRole"`
 	AuthorAvatar  string     `json:"authorAvatar"`
+	AuthorColor   string     `json:"authorColor"`
 	ReplyCount    int64      `json:"replyCount"`
 	LastReplyAt   *time.Time `json:"lastReplyAt,omitempty"`
 	Bumped        bool       `json:"bumped"`
 	BumpLimit     bool       `json:"bumpLimit"`
-	ImageArchived bool       `json:"imageArchived"`
-	Resto         string     `json:"resto"`
-	Sticky        bool       `json:"sticky"`
-	Closed        bool       `json:"closed"`
 }
 
 type Reply struct {
@@ -79,6 +78,7 @@ type Reply struct {
 	AuthorName   string    `json:"authorName"`
 	AuthorRole   Role      `json:"authorRole"`
 	AuthorAvatar string    `json:"authorAvatar"`
+	AuthorColor  string    `json:"authorColor"`
 	Deleted      bool      `json:"deleted"`
 }
 

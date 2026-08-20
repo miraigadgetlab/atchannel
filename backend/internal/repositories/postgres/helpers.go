@@ -50,10 +50,6 @@ func pgTime(t *time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: *t, Valid: true}
 }
 
-func pgBool(b bool) pgtype.Bool {
-	return pgtype.Bool{Bool: b, Valid: true}
-}
-
 func pgInet(ip *netip.Addr) *netip.Addr {
 	if ip == nil {
 		return nil

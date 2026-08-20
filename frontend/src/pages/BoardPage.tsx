@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import type { Thread } from '../lib/types'
 import { Empty, ErrorMessage, Loading } from '../components/Feedback'
 import ComposeBox from '../components/ComposeBox'
 import { useAuth } from '../lib/auth'
 import { formatDate } from '../lib/format'
-import { Link } from 'react-router-dom'
 
 export default function BoardPage() {
   const { board } = useParams<{ board: string }>()
   const slug = board ?? ''
   const { user } = useAuth()
   const [threads, setThreads] = useState<Thread[] | null>(null)
-  const [, setTotal] = useState(0)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -24,7 +22,6 @@ export default function BoardPage() {
       .then((res) => {
         if (cancelled) return
         setThreads(res.threads)
-        setTotal(res.total)
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'failed to load threads')
@@ -35,7 +32,6 @@ export default function BoardPage() {
   const load = async () => {
     const res = await api.threads(slug)
     setThreads(res.threads)
-    setTotal(res.total)
   }
 
   return (

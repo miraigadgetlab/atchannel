@@ -48,9 +48,9 @@ func (s *UserService) CurrentUser(ctx context.Context) (*models.User, error) {
 	return user, nil
 }
 
-func (s *UserService) UpdateProfile(ctx context.Context, id, avatarURL, bio string) (*models.User, error) {
+func (s *UserService) UpdateProfile(ctx context.Context, id, avatarURL, bio, color string) (*models.User, error) {
 	if len(bio) > 500 {
 		return nil, ErrBodyTooLong
 	}
-	return s.users.UpdateProfile(ctx, id, avatarURL, bio)
+	return s.users.UpdateProfile(ctx, id, avatarURL, bio, color)
 }

@@ -208,7 +208,7 @@ textarea.input {
 .error {
   color: var(--text-primary);
   border: 1px solid var(--border-strong);
-  background: #F5F5F5;
+  background: #E8F5E9;
   padding: 4px 8px;
   margin: 8px 0;
   font-size: 14px;
@@ -486,7 +486,7 @@ textarea.input {
   align-items: center;
   justify-content: space-between;
   padding: 5px 10px;
-  background: #F5F5F5;
+  background: #E8F5E9;
   border-bottom: 1px solid var(--border-post);
   font-size: 13px;
   color: var(--text-secondary);
@@ -527,21 +527,16 @@ textarea.input {
 .reply-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .post {
   display: flex;
   gap: 10px;
   padding: 10px;
-  border: 1px solid var(--border-post);
   background: var(--bg-post);
-  border-radius: 2px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .post-op {
-  background: var(--bg-post-op);
   margin-bottom: 12px;
 }
 
@@ -557,6 +552,22 @@ textarea.input {
 .post-content {
   flex: 1;
   min-width: 0;
+  background: #E8F5E9;
+  padding: 8px 10px;
+  border-radius: 2px;
+  position: relative;
+  --bubble-color: #E8F5E9;
+}
+
+.post-content::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 12px;
+  width: 8px;
+  height: 16px;
+  background: var(--bubble-color);
+  clip-path: polygon(100% 0%, 100% 100%, 0% 100%);
 }
 
 .post-header-line {
@@ -564,11 +575,8 @@ textarea.input {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px;
-  padding: 2px 6px;
-  background: #F0F0F0;
-  border-radius: 2px;
-  margin-bottom: 6px;
   font-size: 13px;
+  margin-bottom: 4px;
 }
 
 .post-number {
@@ -743,15 +751,6 @@ textarea.input {
   display: block;
 }
 
-.post-image-inline {
-  max-width: 300px;
-  max-height: 300px;
-  border: 1px solid var(--border-post);
-  border-radius: 3px;
-  margin: 4px 0;
-  display: block;
-}
-
 /* ── Reply references (>>123) ── */
 
 .reply-ref {
@@ -839,6 +838,59 @@ textarea.input {
 
 .profile .post-body {
   margin: 8px 0;
+}
+
+/* ── Color picker ── */
+
+.color-picker-section {
+  margin-top: 16px;
+  padding: 12px;
+  background: #F5F5F5;
+  border-radius: 2px;
+}
+
+.color-picker-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.color-picker-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.15s;
+}
+
+.color-swatch:hover {
+  border-color: var(--border-strong);
+}
+
+.color-swatch-active {
+  border-color: var(--text-primary);
+}
+
+.color-save-btn {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.color-saved-msg {
+  margin-top: 10px;
+  margin-left: 8px;
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* ── Shared post body (used by profile etc) ── */

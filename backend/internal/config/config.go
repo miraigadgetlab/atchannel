@@ -62,7 +62,6 @@ type S3Storage struct {
 
 type Upload struct {
 	MaxSizeBytes int64
-	MaxFileSize  int64 // alias kept for nginx coupling docs
 	AllowedTypes []string
 }
 
@@ -121,7 +120,7 @@ func Load() (*Config, error) {
 			},
 		},
 		Upload: Upload{
-			MaxFileSize:  envInt64("UPLOAD_MAX_BYTES", 10<<20),
+			MaxSizeBytes: envInt64("UPLOAD_MAX_BYTES", 10<<20),
 			AllowedTypes: []string{"image/jpeg", "image/png", "image/webp", "image/gif"},
 		},
 		Auth: Auth{
@@ -143,8 +142,6 @@ func Load() (*Config, error) {
 			AllowedOrigins: splitCSV(env("CORS_ALLOWED_ORIGINS", "http://localhost:5173")),
 		},
 	}
-
-	cfg.Upload.MaxSizeBytes = cfg.Upload.MaxFileSize
 
 	if cfg.App.Env == "production" && cfg.Auth.JWTSecret == "dev-secret-change-me" {
 		return nil, fmt.Errorf("JWT_SECRET must be set in production")

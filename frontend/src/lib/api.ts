@@ -50,6 +50,7 @@ async function rawRequest<T>(path: string, opts: RequestOptions = {}): Promise<T
   const res = await fetch(`${API_BASE}${path}`, {
     method: opts.method ?? 'GET',
     credentials: 'include',
+    cache: 'no-store',
     headers,
     body,
   })
@@ -152,6 +153,9 @@ export const api = {
   },
   user(username: string) {
     return request<UserPublic>(`/users/${encodeURIComponent(username)}`)
+  },
+  updateProfile(data: { avatarUrl?: string; bio?: string; color?: string }) {
+    return request<User>('/users/me', { method: 'PATCH', body: data })
   },
 
   // ---- upload ----

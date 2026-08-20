@@ -35,6 +35,7 @@ func (r *ReplyRepo) ListByThread(ctx context.Context, threadID string) ([]models
 			AuthorName:   row.AuthorName,
 			AuthorRole:   models.Role(row.AuthorRole),
 			AuthorAvatar: row.AuthorAvatar.String,
+			AuthorColor:  row.AuthorColor,
 		}
 		if row.ReplyToID.Valid {
 			u := uuid.UUID(row.ReplyToID.Bytes)
@@ -67,6 +68,7 @@ func (r *ReplyRepo) Create(ctx context.Context, threadID, userID, body string, i
 		AuthorName:   row.AuthorName,
 		AuthorRole:   models.Role(row.AuthorRole),
 		AuthorAvatar: row.AuthorAvatar.String,
+		AuthorColor:  row.AuthorColor,
 	}
 	if row.ReplyToID.Valid {
 		u := uuid.UUID(row.ReplyToID.Bytes)

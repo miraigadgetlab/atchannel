@@ -102,10 +102,15 @@ func RequireRole(min models.Role) func(http.Handler) http.Handler {
 }
 
 func roleAtLeast(role, min models.Role) bool {
-	rank := map[models.Role]int{
-		models.RoleUser:  1,
-		models.RoleMod:   2,
-		models.RoleAdmin: 3,
+	rank := func(r models.Role) int {
+		switch r {
+		case models.RoleAdmin:
+			return 3
+		case models.RoleMod:
+			return 2
+		default:
+			return 1
+		}
 	}
-	return rank[role] >= rank[min]
+	return rank(role) >= rank(min)
 }

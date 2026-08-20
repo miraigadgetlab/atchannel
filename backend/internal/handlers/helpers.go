@@ -8,8 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/kosero/atchannel/backend/internal/middleware"
-	"github.com/kosero/atchannel/backend/internal/repositories/postgres"
+	"github.com/kosero/atchannel/backend/internal/repositories"
 	"github.com/kosero/atchannel/backend/internal/services"
 )
 
@@ -77,18 +76,12 @@ func writeErr(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, "report not found")
 	case errors.Is(err, services.ErrBanNotFound):
 		writeError(w, http.StatusNotFound, "user not found")
-	case errors.Is(err, postgres.ErrNotFound):
+	case errors.Is(err, repositories.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not found")
 	default:
 		slog.Error("internal error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
 	}
-}
-
-func userID(r *http.Request) string { return middleware.ContextUserID(r.Context()) }
-
-func role(r *http.Request) string {
-	return string(middleware.ContextUserRole(r.Context()))
 }
 
 func URLParam(r *http.Request, key string) string {

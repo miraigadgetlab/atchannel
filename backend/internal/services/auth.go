@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,18 @@ import (
 	"github.com/kosero/atchannel/backend/internal/repositories"
 	"github.com/kosero/atchannel/backend/internal/repositories/postgres"
 )
+
+var defaultColors = []string{
+	"#7C3AED",
+	"#3B82F6",
+	"#10B981",
+	"#8B5CF6",
+	"#06B6D4",
+	"#059669",
+	"#6366F1",
+	"#0EA5E9",
+	"#14B8A6",
+}
 
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
@@ -136,11 +149,13 @@ func (s *AuthService) Register(ctx context.Context, username, email, password st
 	if err != nil {
 		return nil, err
 	}
+	n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(defaultColors))))
 	user := &models.User{
 		Username:     username,
 		Email:        email,
 		PasswordHash: hash,
 		Role:         models.RoleUser,
+		Color:        defaultColors[n.Int64()],
 	}
 	if err := s.users.Create(ctx, user); err != nil {
 		return nil, err

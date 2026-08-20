@@ -146,12 +146,6 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
-	// The auth middleware guarantees the identity; profile body is served
-	// by the users handler for richer data. Here we just ack the session.
-	writeJSON(w, http.StatusOK, map[string]string{"userID": userID(r), "role": role(r)})
-}
-
 func (h *AuthHandler) setRefreshCookie(w http.ResponseWriter, token string) {
 	sameSite := http.SameSiteStrictMode
 	if h.cfg.CrossOrigin {

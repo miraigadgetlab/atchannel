@@ -18,7 +18,7 @@ type Querier interface {
 	CreateReply(ctx context.Context, arg CreateReplyParams) (CreateReplyRow, error)
 	CreateReport(ctx context.Context, arg CreateReportParams) (Report, error)
 	CreateThread(ctx context.Context, arg CreateThreadParams) (Thread, error)
-	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	DeleteExpiredRefreshTokens(ctx context.Context) error
 	DeleteReply(ctx context.Context, id string) error
 	DeleteThread(ctx context.Context, id string) error
@@ -33,9 +33,9 @@ type Querier interface {
 	GetReportByID(ctx context.Context, id string) (Report, error)
 	GetThreadBoardID(ctx context.Context, id string) (string, error)
 	GetThreadByID(ctx context.Context, id string) (GetThreadByIDRow, error)
-	GetUserByEmail(ctx context.Context, email string) (User, error)
-	GetUserByID(ctx context.Context, id string) (User, error)
-	GetUserByUsername(ctx context.Context, username string) (User, error)
+	GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error)
+	GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error)
+	GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error)
 	GetUserPublicByUsername(ctx context.Context, username string) (GetUserPublicByUsernameRow, error)
 	ListActiveBans(ctx context.Context) ([]Ban, error)
 	ListBoards(ctx context.Context) ([]Board, error)
@@ -48,7 +48,7 @@ type Querier interface {
 	SetThreadPinned(ctx context.Context, arg SetThreadPinnedParams) error
 	TouchThreadBump(ctx context.Context, id string) error
 	UpdateReportStatus(ctx context.Context, arg UpdateReportStatusParams) (Report, error)
-	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error)
 	UserExistsByEmail(ctx context.Context, email string) (bool, error)
 	UserExistsByUsername(ctx context.Context, username string) (bool, error)
 }

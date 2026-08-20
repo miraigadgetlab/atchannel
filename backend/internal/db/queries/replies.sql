@@ -9,7 +9,8 @@ SELECT
     r.created_at,
     u.username AS author_name,
     u.role AS author_role,
-    u.avatar_url AS author_avatar
+    u.avatar_url AS author_avatar,
+    u.color AS author_color
 FROM replies r
 JOIN users u ON u.id = r.user_id
 WHERE r.thread_id = $1
@@ -31,7 +32,8 @@ SELECT
     nr.created_at,
     u.username AS author_name,
     u.role AS author_role,
-    u.avatar_url AS author_avatar
+    u.avatar_url AS author_avatar,
+    u.color AS author_color
 FROM new_reply nr
 JOIN users u ON u.id = nr.user_id;
 

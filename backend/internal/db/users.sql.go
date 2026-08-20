@@ -13,9 +13,9 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (username, email, password_hash, avatar_url, bio, role)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, username, email, password_hash, avatar_url, bio, role, created_at
+INSERT INTO users (username, email, password_hash, avatar_url, bio, role, color)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, username, email, password_hash, avatar_url, bio, role, color, created_at
 `
 
 type CreateUserParams struct {
@@ -25,9 +25,22 @@ type CreateUserParams struct {
 	AvatarUrl    pgtype.Text
 	Bio          string
 	Role         string
+	Color        string
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+type CreateUserRow struct {
+	ID           string
+	Username     string
+	Email        string
+	PasswordHash string
+	AvatarUrl    pgtype.Text
+	Bio          string
+	Role         string
+	Color        string
+	CreatedAt    time.Time
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
 	row := q.db.QueryRow(ctx, createUser,
 		arg.Username,
 		arg.Email,
@@ -35,8 +48,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.AvatarUrl,
 		arg.Bio,
 		arg.Role,
+		arg.Color,
 	)
-	var i User
+	var i CreateUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
@@ -45,20 +59,33 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.AvatarUrl,
 		&i.Bio,
 		&i.Role,
+		&i.Color,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, username, email, password_hash, avatar_url, bio, role, created_at
+SELECT id, username, email, password_hash, avatar_url, bio, role, color, created_at
 FROM users
 WHERE email = $1
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+type GetUserByEmailRow struct {
+	ID           string
+	Username     string
+	Email        string
+	PasswordHash string
+	AvatarUrl    pgtype.Text
+	Bio          string
+	Role         string
+	Color        string
+	CreatedAt    time.Time
+}
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
 	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i User
+	var i GetUserByEmailRow
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
@@ -67,20 +94,33 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.AvatarUrl,
 		&i.Bio,
 		&i.Role,
+		&i.Color,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, email, password_hash, avatar_url, bio, role, created_at
+SELECT id, username, email, password_hash, avatar_url, bio, role, color, created_at
 FROM users
 WHERE id = $1
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
+type GetUserByIDRow struct {
+	ID           string
+	Username     string
+	Email        string
+	PasswordHash string
+	AvatarUrl    pgtype.Text
+	Bio          string
+	Role         string
+	Color        string
+	CreatedAt    time.Time
+}
+
+func (q *Queries) GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error) {
 	row := q.db.QueryRow(ctx, getUserByID, id)
-	var i User
+	var i GetUserByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
@@ -89,20 +129,33 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.AvatarUrl,
 		&i.Bio,
 		&i.Role,
+		&i.Color,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, email, password_hash, avatar_url, bio, role, created_at
+SELECT id, username, email, password_hash, avatar_url, bio, role, color, created_at
 FROM users
 WHERE username = $1
 `
 
-func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
+type GetUserByUsernameRow struct {
+	ID           string
+	Username     string
+	Email        string
+	PasswordHash string
+	AvatarUrl    pgtype.Text
+	Bio          string
+	Role         string
+	Color        string
+	CreatedAt    time.Time
+}
+
+func (q *Queries) GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error) {
 	row := q.db.QueryRow(ctx, getUserByUsername, username)
-	var i User
+	var i GetUserByUsernameRow
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
@@ -111,13 +164,14 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.AvatarUrl,
 		&i.Bio,
 		&i.Role,
+		&i.Color,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getUserPublicByUsername = `-- name: GetUserPublicByUsername :one
-SELECT id, username, avatar_url, bio, role, created_at
+SELECT id, username, avatar_url, bio, role, color, created_at
 FROM users
 WHERE username = $1
 `
@@ -128,6 +182,7 @@ type GetUserPublicByUsernameRow struct {
 	AvatarUrl pgtype.Text
 	Bio       string
 	Role      string
+	Color     string
 	CreatedAt time.Time
 }
 
@@ -140,6 +195,7 @@ func (q *Queries) GetUserPublicByUsername(ctx context.Context, username string) 
 		&i.AvatarUrl,
 		&i.Bio,
 		&i.Role,
+		&i.Color,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -147,21 +203,40 @@ func (q *Queries) GetUserPublicByUsername(ctx context.Context, username string) 
 
 const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE users
-SET avatar_url = COALESCE($2, avatar_url),
-    bio = COALESCE($3, bio)
+SET avatar_url = CASE WHEN $2::text = '' THEN avatar_url ELSE $2::text END,
+    bio = CASE WHEN $3::text = '' THEN bio ELSE $3::text END,
+    color = CASE WHEN $4::text = '' THEN color ELSE $4::text END
 WHERE id = $1
-RETURNING id, username, email, password_hash, avatar_url, bio, role, created_at
+RETURNING id, username, email, password_hash, avatar_url, bio, role, color, created_at
 `
 
 type UpdateUserProfileParams struct {
-	ID        string
-	AvatarUrl pgtype.Text
-	Bio       string
+	ID      string
+	Column2 string
+	Column3 string
+	Column4 string
 }
 
-func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUserProfile, arg.ID, arg.AvatarUrl, arg.Bio)
-	var i User
+type UpdateUserProfileRow struct {
+	ID           string
+	Username     string
+	Email        string
+	PasswordHash string
+	AvatarUrl    pgtype.Text
+	Bio          string
+	Role         string
+	Color        string
+	CreatedAt    time.Time
+}
+
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile,
+		arg.ID,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+	)
+	var i UpdateUserProfileRow
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
@@ -170,6 +245,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.AvatarUrl,
 		&i.Bio,
 		&i.Role,
+		&i.Color,
 		&i.CreatedAt,
 	)
 	return i, err

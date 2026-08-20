@@ -81,4 +81,5 @@ type User struct {
 	Bio          string
 	Role         string
 	CreatedAt    time.Time
+	Color        string
 }

@@ -7,6 +7,7 @@ export interface User {
   avatarUrl: string
   bio: string
   role: Role
+  color: string
   createdAt: string
 }
 
@@ -16,6 +17,7 @@ export interface UserPublic {
   avatarUrl: string
   bio: string
   role: Role
+  color: string
   createdAt: string
 }
 
@@ -41,14 +43,11 @@ export interface Thread {
   authorName: string
   authorRole: Role
   authorAvatar: string
+  authorColor: string
   replyCount: number
   lastReplyAt?: string
   bumped: boolean
   bumpLimit: boolean
-  imageArchived: boolean
-  resto: string
-  sticky: boolean
-  closed: boolean
 }
 
 export interface Reply {
@@ -62,6 +61,7 @@ export interface Reply {
   authorName: string
   authorRole: Role
   authorAvatar: string
+  authorColor: string
   deleted: boolean
 }
 

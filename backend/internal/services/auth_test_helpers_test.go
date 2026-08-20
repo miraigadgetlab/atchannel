@@ -82,7 +82,7 @@ func (r *InMemoryUserRepo) GetPublicByUsername(ctx context.Context, username str
 	return r.GetByUsername(ctx, username)
 }
 
-func (r *InMemoryUserRepo) UpdateProfile(ctx context.Context, id, avatarURL, bio string) (*models.User, error) {
+func (r *InMemoryUserRepo) UpdateProfile(ctx context.Context, id, avatarURL, bio, color string) (*models.User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	u := r.find(func(x *models.User) bool { return x.ID == id })
@@ -91,6 +91,7 @@ func (r *InMemoryUserRepo) UpdateProfile(ctx context.Context, id, avatarURL, bio
 	}
 	u.AvatarURL = avatarURL
 	u.Bio = bio
+	u.Color = color
 	return u, nil
 }
 

@@ -130,6 +130,7 @@ SELECT
     u.username AS author_name,
     u.role AS author_role,
     u.avatar_url AS author_avatar,
+    u.color AS author_color,
     rr.reply_count,
     rr.last_reply_at,
     (rr.last_reply_at IS NULL OR t.bumped_at >= rr.last_reply_at) AS bumped
@@ -166,6 +167,7 @@ type GetBoardThreadsRow struct {
 	AuthorName   string
 	AuthorRole   string
 	AuthorAvatar pgtype.Text
+	AuthorColor  string
 	ReplyCount   int64
 	LastReplyAt  time.Time
 	Bumped       pgtype.Bool
@@ -195,6 +197,7 @@ func (q *Queries) GetBoardThreads(ctx context.Context, arg GetBoardThreadsParams
 			&i.AuthorName,
 			&i.AuthorRole,
 			&i.AuthorAvatar,
+			&i.AuthorColor,
 			&i.ReplyCount,
 			&i.LastReplyAt,
 			&i.Bumped,
@@ -236,6 +239,7 @@ SELECT
     u.username AS author_name,
     u.role AS author_role,
     u.avatar_url AS author_avatar,
+    u.color AS author_color,
     rr.reply_count,
     rr.last_reply_at,
     (rr.last_reply_at IS NULL OR t.bumped_at >= rr.last_reply_at) AS bumped
@@ -265,6 +269,7 @@ type GetThreadByIDRow struct {
 	AuthorName   string
 	AuthorRole   string
 	AuthorAvatar pgtype.Text
+	AuthorColor  string
 	ReplyCount   int64
 	LastReplyAt  time.Time
 	Bumped       pgtype.Bool
@@ -288,6 +293,7 @@ func (q *Queries) GetThreadByID(ctx context.Context, id string) (GetThreadByIDRo
 		&i.AuthorName,
 		&i.AuthorRole,
 		&i.AuthorAvatar,
+		&i.AuthorColor,
 		&i.ReplyCount,
 		&i.LastReplyAt,
 		&i.Bumped,

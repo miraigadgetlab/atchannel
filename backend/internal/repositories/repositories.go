@@ -14,7 +14,7 @@ type UserRepository interface {
 	GetByUsername(ctx context.Context, username string) (*models.User, error)
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
 	GetPublicByUsername(ctx context.Context, username string) (*models.User, error)
-	UpdateProfile(ctx context.Context, id, avatarURL, bio string) (*models.User, error)
+	UpdateProfile(ctx context.Context, id, avatarURL, bio, color string) (*models.User, error)
 	ExistsByUsername(ctx context.Context, username string) (bool, error)
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 }

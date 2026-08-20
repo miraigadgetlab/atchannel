@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo, type ReactNode, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import type { Reply, Thread } from '../lib/types'
@@ -9,8 +9,8 @@ import { formatDate } from '../lib/format'
 import { renderMarkdown } from '../lib/markdown'
 import defaultAvatar from '../assets/avatar.png'
 
-function renderBody(text: string, allPosts: { id: string; body: string; authorName: string }[], imageUrl?: string): React.ReactNode[] {
-  const parts: React.ReactNode[] = []
+function renderBody(text: string, allPosts: { id: string; body: string; authorName: string }[], imageUrl?: string): ReactNode[] {
+  const parts: ReactNode[] = []
   const regex = /(\[[^\s\]]+\.(?:jpg|jpeg|png|gif|webp|bmp|svg)\])|>>(\w{8,})/g
   let lastIndex = 0
   let match: RegExpExecArray | null
@@ -33,7 +33,7 @@ function renderBody(text: string, allPosts: { id: string; body: string; authorNa
 
     if (match[1] && imageUrl && !imageUsed) {
       parts.push(
-        <img key={`img-${match.index}`} src={imageUrl} alt="" className="post-image-inline" />
+        <img key={`img-${match.index}`} src={imageUrl} alt="" className="post-image" />
       )
       imageUsed = true
     } else if (match[2]) {
@@ -76,7 +76,7 @@ function ReplyRef({ refId, fullId, body, authorName }: { refId: string; fullId: 
     timeoutRef.current = setTimeout(() => setShow(false), 150)
   }, [])
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
+  const handleClick = useCallback((e: ReactMouseEvent) => {
     e.preventDefault()
     const el = document.getElementById(fullId.slice(0, 8))
     if (!el) return
@@ -110,6 +110,7 @@ function PostBox({
   authorName,
   authorRole,
   authorAvatar,
+  authorColor,
   body,
   createdAt,
   imageUrl,
@@ -123,6 +124,7 @@ function PostBox({
   authorName: string
   authorRole: string
   authorAvatar: string
+  authorColor: string
   body: string
   createdAt: string
   imageUrl: string
@@ -133,6 +135,7 @@ function PostBox({
   user?: { username: string } | null
 }) {
   const repliedTo = replyToId ? allPosts.find((p) => p.id === replyToId) : null
+  const bgColor = authorColor || '#E8F5E9'
 
   return (
     <div id={id.slice(0, 8)} className={`post ${isOp ? 'post-op' : 'post-reply'}`}>
@@ -142,7 +145,7 @@ function PostBox({
         className="post-avatar"
         onError={(e) => { e.currentTarget.src = defaultAvatar }}
       />
-      <div className="post-content">
+      <div className="post-content" style={{ background: bgColor, '--bubble-color': bgColor } as CSSProperties}>
         <div className="post-header-line">
           <Link to={`/users/${authorName}`} className="post-name">{authorName}</Link>
           {(authorRole === 'admin' || authorRole === 'mod') && (
@@ -247,6 +250,7 @@ export default function ThreadPage() {
           authorName={thread.authorName}
           authorRole={thread.authorRole}
           authorAvatar={thread.authorAvatar}
+          authorColor={thread.authorColor}
           body={thread.body}
           createdAt={thread.createdAt}
           imageUrl={thread.imageUrl}
@@ -255,7 +259,7 @@ export default function ThreadPage() {
         />
       )}
 
-      {user && !error && thread && !thread.closed && (
+      {user && !error && thread && !thread.isLocked && (
         <ComposeBox
           mode="reply"
           threadId={threadId}
@@ -276,6 +280,7 @@ export default function ThreadPage() {
               authorName={r.authorName}
               authorRole={r.authorRole}
               authorAvatar={r.authorAvatar}
+              authorColor={r.authorColor}
               body={r.body}
               createdAt={r.createdAt}
               imageUrl={r.imageUrl}

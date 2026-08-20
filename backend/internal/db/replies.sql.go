@@ -16,7 +16,7 @@ const createReply = `-- name: CreateReply :one
 WITH new_reply AS (
     INSERT INTO replies (thread_id, user_id, body, image_url, reply_to_id)
     VALUES ($1, $2, $3, $4, $5)
-    RETURNING *
+    RETURNING id, thread_id, user_id, body, image_url, reply_to_id, created_at
 )
 SELECT
     nr.id,
@@ -28,7 +28,8 @@ SELECT
     nr.created_at,
     u.username AS author_name,
     u.role AS author_role,
-    u.avatar_url AS author_avatar
+    u.avatar_url AS author_avatar,
+    u.color AS author_color
 FROM new_reply nr
 JOIN users u ON u.id = nr.user_id
 `
@@ -52,6 +53,7 @@ type CreateReplyRow struct {
 	AuthorName   string
 	AuthorRole   string
 	AuthorAvatar pgtype.Text
+	AuthorColor  string
 }
 
 func (q *Queries) CreateReply(ctx context.Context, arg CreateReplyParams) (CreateReplyRow, error) {
@@ -74,6 +76,7 @@ func (q *Queries) CreateReply(ctx context.Context, arg CreateReplyParams) (Creat
 		&i.AuthorName,
 		&i.AuthorRole,
 		&i.AuthorAvatar,
+		&i.AuthorColor,
 	)
 	return i, err
 }
@@ -119,7 +122,8 @@ SELECT
     r.created_at,
     u.username AS author_name,
     u.role AS author_role,
-    u.avatar_url AS author_avatar
+    u.avatar_url AS author_avatar,
+    u.color AS author_color
 FROM replies r
 JOIN users u ON u.id = r.user_id
 WHERE r.thread_id = $1
@@ -137,6 +141,7 @@ type ListThreadRepliesRow struct {
 	AuthorName   string
 	AuthorRole   string
 	AuthorAvatar pgtype.Text
+	AuthorColor  string
 }
 
 func (q *Queries) ListThreadReplies(ctx context.Context, threadID string) ([]ListThreadRepliesRow, error) {
@@ -159,6 +164,7 @@ func (q *Queries) ListThreadReplies(ctx context.Context, threadID string) ([]Lis
 			&i.AuthorName,
 			&i.AuthorRole,
 			&i.AuthorAvatar,
+			&i.AuthorColor,
 		); err != nil {
 			return nil, err
 		}
