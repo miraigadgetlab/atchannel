@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"atchannel-backend/internal/middleware"
 	"atchannel-backend/internal/service"
 
 	"github.com/gofiber/fiber/v3"
@@ -26,13 +27,15 @@ type AuthHandler struct {
 	tokenService   *service.TokenService
 	userService    *service.UserService
 	sessionService *service.SessionService
+	accountLimiter *middleware.AccountLimiter
 }
 
-func NewAuthHandler(ts *service.TokenService, us *service.UserService, ss *service.SessionService) *AuthHandler {
+func NewAuthHandler(ts *service.TokenService, us *service.UserService, ss *service.SessionService, al *middleware.AccountLimiter) *AuthHandler {
 	return &AuthHandler{
 		tokenService:   ts,
 		userService:    us,
 		sessionService: ss,
+		accountLimiter: al,
 	}
 }
 
@@ -108,13 +111,26 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 		})
 	}
 
+	// Account level lockout: even the right password stays rejected while
+	// the window is open, which is the whole point of the brake.
+	if wait, blocked := h.accountLimiter.Blocked(req.Email); blocked {
+		c.Set(fiber.HeaderRetryAfter, strconv.Itoa(int(wait.Seconds())+1))
+		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+			"error":   "Too Many Requests",
+			"message": "Too many failed attempts for this account, try again later",
+		})
+	}
+
 	user, err := h.userService.Authenticate(c.Context(), req.Email, req.Password)
 	if err != nil {
+		h.accountLimiter.Fail(req.Email)
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error":   "Unauthorized",
 			"message": "Invalid email or password",
 		})
 	}
+
+	h.accountLimiter.Clear(req.Email)
 
 	userIDStr := strconv.FormatUint(uint64(user.ID), 10)
 

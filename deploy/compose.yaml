@@ -30,6 +30,12 @@ services:
       - ADMIN_PASSWORD=admin1234
       # comma separated origins, "*" for any (tighten this in production)
       - CORS_ORIGINS=*
+      # brute force protection: attempts per window per IP (register counts
+      # every try, login counts only failures) + per-account failed login lock
+      - RATE_LIMIT_MAX=10
+      - RATE_LIMIT_WINDOW=1m
+      - ACCOUNT_LOCK_MAX=5
+      - ACCOUNT_LOCK_WINDOW=15m
     depends_on:
       - postgres
 

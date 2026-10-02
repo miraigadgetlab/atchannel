@@ -50,9 +50,15 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 		SigningMethod: jwt.SigningMethodHS256,
 	})
 
+	// Brute force protection on the public auth endpoints. Register counts
+	// every attempt (mass signups are the attack), login only counts
+	// failures (a legit user must never lock themselves out by succeeding).
+	registerLimit := middleware.NewAuthRateLimiter(deps.Config.RateLimitMax, deps.Config.RateLimitWindow, false)
+	loginLimit := middleware.NewAuthRateLimiter(deps.Config.RateLimitMax, deps.Config.RateLimitWindow, true)
+
 	// Public
-	api.Post("/auth/register", deps.AuthHandler.Register)
-	api.Post("/auth/login", deps.AuthHandler.Login)
+	api.Post("/auth/register", registerLimit, deps.AuthHandler.Register)
+	api.Post("/auth/login", loginLimit, deps.AuthHandler.Login)
 	api.Post("/auth/refresh", deps.AuthHandler.Refresh)
 	api.Post("/auth/logout", deps.AuthHandler.Logout)
 

@@ -3,7 +3,9 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -12,6 +14,15 @@ type Config struct {
 
 	// AllowedOrigins drives the CORS policy. Empty/unset means wildcard.
 	AllowedOrigins []string
+
+	// Brute-force protection for the public auth endpoints.
+	// RateLimitMax/RateLimitWindow throttles login+register per client IP.
+	// AccountLockMax/AccountLockWindow locks a single account after that
+	// many consecutive failed logins, no matter where they come from.
+	RateLimitMax      int
+	RateLimitWindow   time.Duration
+	AccountLockMax    int
+	AccountLockWindow time.Duration
 
 	// Bootstrap admin account. Seeding only happens when both
 	// AdminEmail and AdminPassword are provided.
@@ -32,12 +43,16 @@ func LoadConfig() *Config {
 	}
 
 	cfg := &Config{
-		Port:           ":" + port,
-		JWTSecret:      []byte(secret),
-		AllowedOrigins: parseOrigins(os.Getenv("CORS_ORIGINS")),
-		AdminName:      os.Getenv("ADMIN_NAME"),
-		AdminEmail:     os.Getenv("ADMIN_EMAIL"),
-		AdminPassword:  os.Getenv("ADMIN_PASSWORD"),
+		Port:              ":" + port,
+		JWTSecret:         []byte(secret),
+		AllowedOrigins:    parseOrigins(os.Getenv("CORS_ORIGINS")),
+		RateLimitMax:      envInt("RATE_LIMIT_MAX", 10),
+		RateLimitWindow:   envDuration("RATE_LIMIT_WINDOW", time.Minute),
+		AccountLockMax:    envInt("ACCOUNT_LOCK_MAX", 5),
+		AccountLockWindow: envDuration("ACCOUNT_LOCK_WINDOW", 15*time.Minute),
+		AdminName:         os.Getenv("ADMIN_NAME"),
+		AdminEmail:        os.Getenv("ADMIN_EMAIL"),
+		AdminPassword:     os.Getenv("ADMIN_PASSWORD"),
 	}
 
 	if cfg.AdminName == "" {
@@ -50,8 +65,43 @@ func LoadConfig() *Config {
 	}
 
 	log.Printf("CORS allowed origins: %v", cfg.AllowedOrigins)
+	log.Printf("rate limits: %d attempts/%s per IP, account lock %d failures/%s",
+		cfg.RateLimitMax, cfg.RateLimitWindow, cfg.AccountLockMax, cfg.AccountLockWindow)
 
 	return cfg
+}
+
+// envInt reads an integer override, falling back on empty or invalid values.
+func envInt(name string, fallback int) int {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 1 {
+		log.Printf("WARNING: invalid %s=%q, using default %d", name, raw, fallback)
+		return fallback
+	}
+
+	return value
+}
+
+// envDuration reads a Go duration override ("30s", "15m"), falling back on
+// empty or invalid values.
+func envDuration(name string, fallback time.Duration) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+
+	value, err := time.ParseDuration(raw)
+	if err != nil || value <= 0 {
+		log.Printf("WARNING: invalid %s=%q, using default %s", name, raw, fallback)
+		return fallback
+	}
+
+	return value
 }
 
 // parseOrigins turns a comma separated CORS_ORIGINS value into a list,

@@ -7,6 +7,7 @@ import (
 	"atchannel-backend/internal/config"
 	"atchannel-backend/internal/db"
 	"atchannel-backend/internal/handler"
+	"atchannel-backend/internal/middleware"
 	"atchannel-backend/internal/router"
 	"atchannel-backend/internal/service"
 
@@ -35,7 +36,8 @@ func main() {
 		log.Printf("admin account ready: %s <%s> roles=%v", admin.Name, admin.Email, admin.Roles)
 	}
 
-	authHandler := handler.NewAuthHandler(tokenService, userService, sessionService)
+	accountLimiter := middleware.NewAccountLimiter(cfg.AccountLockMax, cfg.AccountLockWindow)
+	authHandler := handler.NewAuthHandler(tokenService, userService, sessionService, accountLimiter)
 	channelHandler := handler.NewChannelHandler(channelService, postService)
 	postHandler := handler.NewPostHandler(postService)
 	commentHandler := handler.NewCommentHandler(commentService)
