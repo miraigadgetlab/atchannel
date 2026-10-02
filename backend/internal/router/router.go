@@ -34,6 +34,7 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	api.Post("/auth/refresh", deps.AuthHandler.Refresh)
 
 	api.Get("/channels", deps.ChannelHandler.List)
+	api.Get("/channels/:id", deps.ChannelHandler.GetByID)
 	api.Get("/posts", deps.PostHandler.List)
 	api.Get("/posts/:id", deps.PostHandler.GetByID)
 	api.Get("/posts/:id/comments", deps.CommentHandler.List)
@@ -52,11 +53,12 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	protected.Post("/posts/:id/comments", deps.CommentHandler.Create)
 	protected.Delete("/comments/:commentID", deps.CommentHandler.Delete)
 
-	// Admin only (auth required first, then the admin role check)
+	// Admin only
 	admin := api.Group("", authGuard, middleware.RequireRole("admin"))
 
 	admin.Get("/admin/users", deps.AdminHandler.ListUsers)
 	admin.Get("/admin/stats", deps.AdminHandler.Stats)
 	admin.Put("/admin/users/:id/roles", deps.AdminHandler.SetRoles)
 	admin.Delete("/admin/users/:id", deps.AdminHandler.DeleteUser)
+	admin.Delete("/channels/:id", deps.ChannelHandler.Delete)
 }

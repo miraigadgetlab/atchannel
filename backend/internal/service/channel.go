@@ -67,3 +67,31 @@ func (s *ChannelService) GetByID(ctx context.Context, id uint) (*models.Channel,
 
 	return &channel, nil
 }
+
+func (s *ChannelService) CountPosts(ctx context.Context, channelID uint) (int64, error) {
+	var count int64
+
+	err := s.db.WithContext(ctx).Model(&models.Post{}).Where("channel_id = ?", channelID).Count(&count).Error
+	return count, err
+}
+
+func (s *ChannelService) Delete(ctx context.Context, id uint) error {
+	var channel models.Channel
+
+	if err := s.db.WithContext(ctx).First(&channel, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrChannelNotFound
+		}
+		return err
+	}
+
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("DELETE FROM comments WHERE post_id IN (SELECT id FROM posts WHERE channel_id = ?)", id).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM posts WHERE channel_id = ?", id).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&channel).Error
+	})
+}

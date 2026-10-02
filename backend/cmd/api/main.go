@@ -35,7 +35,7 @@ func main() {
 	}
 
 	authHandler := handler.NewAuthHandler(tokenService, userService)
-	channelHandler := handler.NewChannelHandler(channelService)
+	channelHandler := handler.NewChannelHandler(channelService, postService)
 	postHandler := handler.NewPostHandler(postService)
 	commentHandler := handler.NewCommentHandler(commentService)
 	adminHandler := handler.NewAdminHandler(userService, statsService)

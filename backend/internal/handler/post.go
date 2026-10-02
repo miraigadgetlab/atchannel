@@ -95,29 +95,15 @@ func (h *PostHandler) List(c fiber.Ctx) error {
 		filter.ChannelID = &id
 	}
 
-	if raw := c.Query("limit"); raw != "" {
-		limit, err := strconv.Atoi(raw)
-		if err != nil || limit < 1 || limit > 100 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad Request",
-				"message": "limit must be a number between 1 and 100",
-			})
-		}
-		filter.Limit = limit
-	} else {
-		filter.Limit = 20
+	limit, offset, err := parsePagination(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad Request",
+			"message": err.Error(),
+		})
 	}
-
-	if raw := c.Query("offset"); raw != "" {
-		offset, err := strconv.Atoi(raw)
-		if err != nil || offset < 0 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad Request",
-				"message": "offset must be a non-negative number",
-			})
-		}
-		filter.Offset = offset
-	}
+	filter.Limit = limit
+	filter.Offset = offset
 
 	posts, err := h.postService.List(c.Context(), filter)
 	if err != nil {
