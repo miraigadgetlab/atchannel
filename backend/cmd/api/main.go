@@ -39,6 +39,7 @@ func main() {
 	postHandler := handler.NewPostHandler(postService)
 	commentHandler := handler.NewCommentHandler(commentService)
 	adminHandler := handler.NewAdminHandler(userService, statsService)
+	profileHandler := handler.NewProfileHandler(userService)
 
 	app := fiber.New()
 
@@ -49,6 +50,7 @@ func main() {
 		PostHandler:    postHandler,
 		CommentHandler: commentHandler,
 		AdminHandler:   adminHandler,
+		ProfileHandler: profileHandler,
 	})
 
 	log.Printf("listening on %s", cfg.Port)

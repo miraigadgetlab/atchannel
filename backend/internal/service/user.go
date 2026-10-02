@@ -18,7 +18,17 @@ var (
 	ErrNameTaken          = errors.New("name is already taken")
 	ErrUserNotFound       = errors.New("user not found")
 	ErrInvalidRoles       = errors.New("invalid roles")
+	ErrCurrentPassword    = errors.New("current password is incorrect")
 )
+
+// UpdateProfileInput carries only the fields the client wants to change;
+// a nil field is left untouched.
+type UpdateProfileInput struct {
+	Name      *string
+	Email     *string
+	AboutMe   *string
+	AvatarURL *string
+}
 
 // AllowedRoles is the closed set of roles a channeler can hold.
 // There is deliberately no moderator tier.
@@ -112,6 +122,84 @@ func (s *UserService) List(ctx context.Context) ([]models.Channeler, error) {
 	}
 
 	return users, nil
+}
+
+func (s *UserService) GetByID(ctx context.Context, userID uint) (*models.Channeler, error) {
+	var user models.Channeler
+
+	if err := s.db.WithContext(ctx).First(&user, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// UpdateProfile applies only the provided fields; nil fields stay untouched.
+// Name and email are re-checked for uniqueness against every other account.
+func (s *UserService) UpdateProfile(ctx context.Context, userID uint, in UpdateProfileInput) (*models.Channeler, error) {
+	user, err := s.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if in.Name != nil && *in.Name != user.Name {
+		var count int64
+		if err := s.db.WithContext(ctx).Model(&models.Channeler{}).
+			Where("name = ? AND id <> ?", *in.Name, userID).Count(&count).Error; err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			return nil, ErrNameTaken
+		}
+		user.Name = *in.Name
+	}
+
+	if in.Email != nil && *in.Email != user.Email {
+		var count int64
+		if err := s.db.WithContext(ctx).Model(&models.Channeler{}).
+			Where("email = ? AND id <> ?", *in.Email, userID).Count(&count).Error; err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			return nil, ErrEmailTaken
+		}
+		user.Email = *in.Email
+	}
+
+	if in.AboutMe != nil {
+		user.AboutMe = *in.AboutMe
+	}
+	if in.AvatarURL != nil {
+		user.AvatarUrl = *in.AvatarURL
+	}
+
+	if err := s.db.WithContext(ctx).Save(user).Error; err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// ChangePassword verifies the current password before storing the new hash.
+func (s *UserService) ChangePassword(ctx context.Context, userID uint, currentPassword, newPassword string) error {
+	user, err := s.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)); err != nil {
+		return ErrCurrentPassword
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	return s.db.WithContext(ctx).Model(user).Update("password", string(hashed)).Error
 }
 
 func (s *UserService) SetRoles(ctx context.Context, userID uint, roles []string) (*models.Channeler, error) {

@@ -16,6 +16,7 @@ type RouterDeps struct {
 	PostHandler    *handler.PostHandler
 	CommentHandler *handler.CommentHandler
 	AdminHandler   *handler.AdminHandler
+	ProfileHandler *handler.ProfileHandler
 }
 
 func SetupRoutes(app *fiber.App, deps RouterDeps) {
@@ -42,10 +43,9 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	// Authenticated
 	protected := api.Group("", authGuard)
 
-	protected.Get("/me", func(c fiber.Ctx) error {
-		claims := c.Locals("user").(*middleware.UserClaims)
-		return c.JSON(claims)
-	})
+	protected.Get("/me", deps.ProfileHandler.Me)
+	protected.Put("/me", deps.ProfileHandler.Update)
+	protected.Put("/me/password", deps.ProfileHandler.ChangePassword)
 	protected.Post("/channels", deps.ChannelHandler.Create)
 	protected.Post("/posts", deps.PostHandler.Create)
 	protected.Put("/posts/:id", deps.PostHandler.Update)
