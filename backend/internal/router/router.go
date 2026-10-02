@@ -10,8 +10,10 @@ import (
 )
 
 type RouterDeps struct {
-	Config      *config.Config
-	AuthHandler *handler.AuthHandler
+	Config         *config.Config
+	AuthHandler    *handler.AuthHandler
+	ChannelHandler *handler.ChannelHandler
+	PostHandler    *handler.PostHandler
 }
 
 func SetupRoutes(app *fiber.App, deps RouterDeps) {
@@ -19,18 +21,27 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 
 	api := app.Group("/api/v1")
 
-	api.Post("/auth/register", deps.AuthHandler.Register)
-	api.Post("/auth/login", deps.AuthHandler.Login)
-	api.Post("/auth/refresh", deps.AuthHandler.Refresh)
-
 	authGuard := middleware.NewAuthMiddleware(middleware.AuthConfig{
 		SecretKey:     deps.Config.JWTSecret,
 		SigningMethod: jwt.SigningMethodHS256,
 	})
 
+	// Public
+	api.Post("/auth/register", deps.AuthHandler.Register)
+	api.Post("/auth/login", deps.AuthHandler.Login)
+	api.Post("/auth/refresh", deps.AuthHandler.Refresh)
+
+	api.Get("/channels", deps.ChannelHandler.List)
+	api.Get("/posts", deps.PostHandler.List)
+	api.Get("/posts/:id", deps.PostHandler.GetByID)
+
+	// Authenticated
 	protected := api.Group("", authGuard)
+
 	protected.Get("/me", func(c fiber.Ctx) error {
 		claims := c.Locals("user").(*middleware.UserClaims)
 		return c.JSON(claims)
 	})
+	protected.Post("/channels", deps.ChannelHandler.Create)
+	protected.Post("/posts", deps.PostHandler.Create)
 }

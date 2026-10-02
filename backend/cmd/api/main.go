@@ -20,13 +20,20 @@ func main() {
 
 	tokenService := service.NewTokenService(cfg.JWTSecret, "atchannel")
 	userService := service.NewUserService(db.DB)
+	channelService := service.NewChannelService(db.DB)
+	postService := service.NewPostService(db.DB)
+
 	authHandler := handler.NewAuthHandler(tokenService, userService)
+	channelHandler := handler.NewChannelHandler(channelService)
+	postHandler := handler.NewPostHandler(postService)
 
 	app := fiber.New()
 
 	router.SetupRoutes(app, router.RouterDeps{
-		Config:      cfg,
-		AuthHandler: authHandler,
+		Config:         cfg,
+		AuthHandler:    authHandler,
+		ChannelHandler: channelHandler,
+		PostHandler:    postHandler,
 	})
 
 	log.Printf("listening on %s", cfg.Port)
