@@ -19,6 +19,10 @@ type ChannelFilter struct {
 	// Query, when non-empty, matches channels whose name, title or
 	// description contains it (case-insensitive, wildcards literal).
 	Query string
+	// Limit/Offset page the result. A Limit of 0 means "no limit" and is
+	// only safe for callers that already know the set is small.
+	Limit  int
+	Offset int
 }
 
 // UpdateChannelInput carries only the fields the client wants to change;
@@ -69,6 +73,13 @@ func (s *ChannelService) List(ctx context.Context, filter ChannelFilter) ([]mode
 		query = query.Where("(name ILIKE ? OR title ILIKE ? OR description ILIKE ?)", pattern, pattern, pattern)
 	}
 
+	if filter.Limit > 0 {
+		query = query.Limit(filter.Limit)
+	}
+	if filter.Offset > 0 {
+		query = query.Offset(filter.Offset)
+	}
+
 	var channels []models.Channel
 
 	if err := query.Order("id").Find(&channels).Error; err != nil {
@@ -76,6 +87,20 @@ func (s *ChannelService) List(ctx context.Context, filter ChannelFilter) ([]mode
 	}
 
 	return channels, nil
+}
+
+// Count returns how many channels match the filter, independent of paging.
+func (s *ChannelService) Count(ctx context.Context, filter ChannelFilter) (int64, error) {
+	query := s.db.WithContext(ctx).Model(&models.Channel{})
+
+	if filter.Query != "" {
+		pattern := likePattern(filter.Query)
+		query = query.Where("(name ILIKE ? OR title ILIKE ? OR description ILIKE ?)", pattern, pattern, pattern)
+	}
+
+	var count int64
+	err := query.Count(&count).Error
+	return count, err
 }
 
 // Update partially edits a channel. Admins may edit anything; everyone
@@ -143,7 +168,10 @@ func (s *ChannelService) CountPosts(ctx context.Context, channelID uint) (int64,
 	return count, err
 }
 
-func (s *ChannelService) Delete(ctx context.Context, id uint) error {
+// Delete removes a channel and everything inside it. Admins may delete any
+// channel; everyone else only channels they opened. Channels with an
+// unknown owner (nil) are admin-only, mirroring Update.
+func (s *ChannelService) Delete(ctx context.Context, id, userID uint, isAdmin bool) error {
 	var channel models.Channel
 
 	if err := s.db.WithContext(ctx).First(&channel, id).Error; err != nil {
@@ -151,6 +179,11 @@ func (s *ChannelService) Delete(ctx context.Context, id uint) error {
 			return ErrChannelNotFound
 		}
 		return err
+	}
+
+	ownedByCaller := channel.CreatedBy != nil && *channel.CreatedBy == userID
+	if !isAdmin && !ownedByCaller {
+		return ErrForbidden
 	}
 
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

@@ -64,6 +64,23 @@ func (s *PostService) Create(ctx context.Context, userID, channelID uint, title,
 	return &post, nil
 }
 
+// Count returns how many posts match the filter, independent of paging.
+func (s *PostService) Count(ctx context.Context, filter PostFilter) (int64, error) {
+	query := s.db.WithContext(ctx).Model(&models.Post{})
+
+	if filter.ChannelID != nil {
+		query = query.Where("channel_id = ?", *filter.ChannelID)
+	}
+	if filter.Query != "" {
+		pattern := likePattern(filter.Query)
+		query = query.Where("(title ILIKE ? OR content ILIKE ?)", pattern, pattern)
+	}
+
+	var count int64
+	err := query.Count(&count).Error
+	return count, err
+}
+
 func (s *PostService) List(ctx context.Context, filter PostFilter) ([]models.Post, error) {
 	query := s.db.WithContext(ctx).Preload("User")
 
@@ -92,7 +109,7 @@ func (s *PostService) List(ctx context.Context, filter PostFilter) ([]models.Pos
 	return posts, nil
 }
 
-func (s *PostService) Update(ctx context.Context, id, userID uint, in UpdatePostInput) (*models.Post, error) {
+func (s *PostService) Update(ctx context.Context, id, userID uint, isAdmin bool, in UpdatePostInput) (*models.Post, error) {
 	var post models.Post
 
 	if err := s.db.WithContext(ctx).First(&post, id).Error; err != nil {
@@ -102,7 +119,7 @@ func (s *PostService) Update(ctx context.Context, id, userID uint, in UpdatePost
 		return nil, err
 	}
 
-	if post.UserID != userID {
+	if post.UserID != userID && !isAdmin {
 		return nil, ErrForbidden
 	}
 

@@ -8,6 +8,7 @@ import (
 
 	"atchannel-backend/internal/models"
 	"atchannel-backend/internal/service"
+	"atchannel-backend/internal/validation"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -50,43 +51,35 @@ func NewChannelHandler(cs *service.ChannelService, ps *service.PostService) *Cha
 func (h *ChannelHandler) Create(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": err.Error(),
-		})
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
 	}
 
 	var req CreateChannelRequest
 
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid request payload format",
-		})
+		return replyBadRequest(c, "Invalid request payload format")
 	}
 
 	req.Name = strings.TrimSpace(req.Name)
 	req.Title = strings.TrimSpace(req.Title)
+	req.Description = strings.TrimSpace(req.Description)
 
-	if req.Name == "" || req.Title == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Name and title are required",
-		})
+	if msg := validation.ChannelNameError(req.Name); msg != "" {
+		return replyBadRequest(c, msg)
+	}
+	if msg := validation.TooLong("title", req.Title, validation.MaxChannelTitle); msg != "" {
+		return replyBadRequest(c, msg)
+	}
+	if req.Title == "" {
+		return replyBadRequest(c, "Name and title are required")
+	}
+	if msg := validation.TooLong("description", req.Description, validation.MaxChannelDescription); msg != "" {
+		return replyBadRequest(c, msg)
 	}
 
-	channel, err := h.channelService.Create(c.Context(), userID, req.Name, req.Title, strings.TrimSpace(req.Description))
+	channel, err := h.channelService.Create(c.Context(), userID, req.Name, req.Title, req.Description)
 	if err != nil {
-		if errors.Is(err, service.ErrChannelNameTaken) {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error":   "Conflict",
-				"message": "A channel with this name already exists",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to create channel",
-		})
+		return svcErr(c, err, "Failed to create channel")
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(channel)
@@ -95,60 +88,55 @@ func (h *ChannelHandler) Create(c fiber.Ctx) error {
 func (h *ChannelHandler) List(c fiber.Ctx) error {
 	query, err := searchQuery(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": err.Error(),
-		})
+		return replyBadRequest(c, err.Error())
 	}
 
-	channels, err := h.channelService.List(c.Context(), service.ChannelFilter{Query: query})
+	limit, offset, err := parsePagination(c)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to fetch channels",
-		})
+		return replyBadRequest(c, err.Error())
 	}
 
-	return c.JSON(channels)
+	filter := service.ChannelFilter{Query: query, Limit: limit, Offset: offset}
+
+	channels, err := h.channelService.List(c.Context(), filter)
+	if err != nil {
+		return replyInternal(c, err, "Failed to fetch channels")
+	}
+
+	// Total is counted without the paging clause so the client can render
+	// a page count even when this page is the last one.
+	total, err := h.channelService.Count(c.Context(), service.ChannelFilter{Query: query})
+	if err != nil {
+		return replyInternal(c, err, "Failed to count channels")
+	}
+
+	return c.JSON(fiber.Map{
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+		"items":  channels,
+	})
 }
 
 func (h *ChannelHandler) GetByID(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Channel id must be a number",
-		})
+		return replyBadRequest(c, "Channel id must be a number")
 	}
 
 	channel, err := h.channelService.GetByID(c.Context(), uint(id))
 	if err != nil {
-		if errors.Is(err, service.ErrChannelNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not Found",
-				"message": "Channel not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to fetch channel",
-		})
+		return svcErr(c, err, "Failed to fetch channel")
 	}
 
 	limit, offset, err := parsePagination(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": err.Error(),
-		})
+		return replyBadRequest(c, err.Error())
 	}
 
 	postCount, err := h.channelService.CountPosts(c.Context(), uint(id))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to count posts",
-		})
+		return replyInternal(c, err, "Failed to count posts")
 	}
 
 	channelID := uint(id)
@@ -158,10 +146,7 @@ func (h *ChannelHandler) GetByID(c fiber.Ctx) error {
 		Offset:    offset,
 	})
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to fetch posts",
-		})
+		return replyInternal(c, err, "Failed to fetch posts")
 	}
 
 	return c.JSON(ChannelDetailResponse{
@@ -181,55 +166,45 @@ func (h *ChannelHandler) GetByID(c fiber.Ctx) error {
 func (h *ChannelHandler) Update(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": err.Error(),
-		})
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
 	}
 
 	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Channel id must be a number",
-		})
+		return replyBadRequest(c, "Channel id must be a number")
 	}
 
 	var req UpdateChannelRequest
 
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid request payload format",
-		})
+		return replyBadRequest(c, "Invalid request payload format")
 	}
 
 	if req.Name == nil && req.Title == nil && req.Description == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Nothing to update: provide name, title and/or description",
-		})
+		return replyBadRequest(c, "Nothing to update: provide name, title and/or description")
 	}
 
 	if req.Name != nil {
 		trimmed := strings.TrimSpace(*req.Name)
-		if trimmed == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad Request",
-				"message": "Name cannot be empty",
-			})
+		if msg := validation.ChannelNameError(trimmed); msg != "" {
+			return replyBadRequest(c, msg)
 		}
 		*req.Name = trimmed
 	}
 	if req.Title != nil {
 		trimmed := strings.TrimSpace(*req.Title)
 		if trimmed == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad Request",
-				"message": "Title cannot be empty",
-			})
+			return replyBadRequest(c, "Title cannot be empty")
+		}
+		if msg := validation.TooLong("title", trimmed, validation.MaxChannelTitle); msg != "" {
+			return replyBadRequest(c, msg)
 		}
 		*req.Title = trimmed
+	}
+	if req.Description != nil {
+		if msg := validation.TooLong("description", *req.Description, validation.MaxChannelDescription); msg != "" {
+			return replyBadRequest(c, msg)
+		}
 	}
 
 	channel, err := h.channelService.Update(c.Context(), uint(id), userID, currentIsAdmin(c), service.UpdateChannelInput{
@@ -238,55 +213,37 @@ func (h *ChannelHandler) Update(c fiber.Ctx) error {
 		Description: req.Description,
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrChannelNotFound):
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not Found",
-				"message": "Channel not found",
-			})
-		case errors.Is(err, service.ErrForbidden):
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error":   "Forbidden",
-				"message": "Only the channel creator or an admin can edit this channel",
-			})
-		case errors.Is(err, service.ErrChannelNameTaken):
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error":   "Conflict",
-				"message": "A channel with this name already exists",
-			})
-		default:
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error":   "Internal Server Error",
-				"message": "Failed to update channel",
-			})
-		}
+		return channelErrorResponse(c, err, "Failed to update channel", "edit")
 	}
 
 	return c.JSON(channel)
 }
 
-// Delete is mounted behind the admin role guard, so there is no ownership check here.
+// Delete lets the creator (or an admin) take a channel down.
 func (h *ChannelHandler) Delete(c fiber.Ctx) error {
-	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	userID, err := currentUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Channel id must be a number",
-		})
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
 	}
 
-	if err := h.channelService.Delete(c.Context(), uint(id)); err != nil {
-		if errors.Is(err, service.ErrChannelNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not Found",
-				"message": "Channel not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to delete channel",
-		})
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return replyBadRequest(c, "Channel id must be a number")
+	}
+
+	if err := h.channelService.Delete(c.Context(), uint(id), userID, currentIsAdmin(c)); err != nil {
+		return channelErrorResponse(c, err, "Failed to delete channel", "delete")
 	}
 
 	return c.JSON(fiber.Map{"deleted": true})
+}
+
+// channelErrorResponse maps the service errors shared by update/delete to
+// HTTP responses. It is svcErr plus the channel-specific "not your channel"
+// wording, which names the action the caller was attempting.
+func channelErrorResponse(c fiber.Ctx, err error, internalMessage, action string) error {
+	if errors.Is(err, service.ErrForbidden) {
+		return replyErr(c, fiber.StatusForbidden, "Only the channel creator or an admin can "+action+" this channel")
+	}
+	return svcErr(c, err, internalMessage)
 }

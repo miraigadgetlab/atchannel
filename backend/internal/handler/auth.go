@@ -8,6 +8,7 @@ import (
 
 	"atchannel-backend/internal/middleware"
 	"atchannel-backend/internal/service"
+	"atchannel-backend/internal/validation"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -43,10 +44,7 @@ func (h *AuthHandler) Register(c fiber.Ctx) error {
 	var req RegisterRequest
 
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid request payload format",
-		})
+		return replyBadRequest(c, "Invalid request payload format")
 	}
 
 	req.Name = strings.TrimSpace(req.Name)
@@ -54,41 +52,21 @@ func (h *AuthHandler) Register(c fiber.Ctx) error {
 
 	switch {
 	case req.Name == "" || req.Email == "" || req.Password == "":
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Name, email and password are required",
-		})
-	case !strings.Contains(req.Email, "@"):
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid email address",
-		})
+		return replyBadRequest(c, "Name, email and password are required")
+	case validation.NameError(req.Name) != "":
+		return replyBadRequest(c, validation.NameError(req.Name))
+	case validation.EmailError(req.Email) != "":
+		return replyBadRequest(c, validation.EmailError(req.Email))
 	case len(req.Password) < 8:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Password must be at least 8 characters long",
-		})
+		return replyBadRequest(c, "Password must be at least 8 characters long")
 	}
 
 	user, err := h.userService.Create(c.Context(), req.Name, req.Email, req.Password)
 	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrEmailTaken):
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error":   "Conflict",
-				"message": "An account with this email already exists",
-			})
-		case errors.Is(err, service.ErrNameTaken):
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error":   "Conflict",
-				"message": "This name is already taken",
-			})
-		default:
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error":   "Internal Server Error",
-				"message": "Failed to create account",
-			})
+		if errors.Is(err, service.ErrEmailTaken) {
+			return replyErr(c, fiber.StatusConflict, "An account with this email already exists")
 		}
+		return svcErr(c, err, "Failed to create account")
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(user)
@@ -98,36 +76,24 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	var req LoginRequest
 
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid request payload format",
-		})
+		return replyBadRequest(c, "Invalid request payload format")
 	}
 
 	if req.Email == "" || req.Password == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Email and password are required",
-		})
+		return replyBadRequest(c, "Email and password are required")
 	}
 
 	// Account level lockout: even the right password stays rejected while
 	// the window is open, which is the whole point of the brake.
 	if wait, blocked := h.accountLimiter.Blocked(req.Email); blocked {
 		c.Set(fiber.HeaderRetryAfter, strconv.Itoa(int(wait.Seconds())+1))
-		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-			"error":   "Too Many Requests",
-			"message": "Too many failed attempts for this account, try again later",
-		})
+		return replyErr(c, fiber.StatusTooManyRequests, "Too many failed attempts for this account, try again later")
 	}
 
 	user, err := h.userService.Authenticate(c.Context(), req.Email, req.Password)
 	if err != nil {
 		h.accountLimiter.Fail(req.Email)
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": "Invalid email or password",
-		})
+		return replyErr(c, fiber.StatusUnauthorized, "Invalid email or password")
 	}
 
 	h.accountLimiter.Clear(req.Email)
@@ -136,18 +102,13 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 
 	tokens, err := h.tokenService.GenerateTokenPair(userIDStr, user.Email, user.Roles)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to generate security tokens",
-		})
+		return replyInternal(c, err, "Failed to generate security tokens")
 	}
 
-	// Track the refresh token so it can be revoked later.
-	if err := h.sessionService.Record(c.Context(), user.ID, tokens.RefreshToken, time.Unix(tokens.RefreshExpiresAt, 0)); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to create session",
-		})
+	// Track the refresh token so it can be revoked later. A fresh login
+	// starts a new family: everything rotated from here descends from it.
+	if err := h.sessionService.Record(c.Context(), user.ID, service.NewFamilyID(), tokens.RefreshToken, time.Unix(tokens.RefreshExpiresAt, 0)); err != nil {
+		return replyInternal(c, err, "Failed to create session")
 	}
 
 	return c.JSON(tokens)
@@ -160,56 +121,47 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 
 	var req RefreshRequest
 	if err := c.Bind().Body(&req); err != nil || req.RefreshToken == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Refresh token is required",
-		})
+		return replyBadRequest(c, "Refresh token is required")
 	}
 
 	claims, err := h.tokenService.ValidateRefreshToken(req.RefreshToken)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid or expired refresh token",
-		})
-	}
-
-	// The token must still be an active session: not revoked, not expired.
-	valid, err := h.sessionService.IsValid(c.Context(), req.RefreshToken)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal Server Error",
-		})
-	}
-	if !valid {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Refresh token is no longer valid",
-		})
+		return replyErr(c, fiber.StatusUnauthorized, "Invalid or expired refresh token")
 	}
 
 	ownerID, err := strconv.ParseUint(claims.UserID, 10, 64)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid or expired refresh token",
-		})
+		return replyErr(c, fiber.StatusUnauthorized, "Invalid or expired refresh token")
+	}
+
+	// The account must still exist: a token outliving its user (deleted
+	// account, admin purge) must not resurrect a session.
+	if _, err := h.userService.GetByID(c.Context(), uint(ownerID)); err != nil {
+		return replyErr(c, fiber.StatusUnauthorized, "Refresh token is no longer valid")
 	}
 
 	tokens, err := h.tokenService.GenerateTokenPair(claims.UserID, claims.Email, claims.Roles)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to generate security tokens",
-		})
+		return replyInternal(c, err, "Failed to generate security tokens")
 	}
 
-	// Rotation: the presented token dies, the new one takes its place.
-	if _, err := h.sessionService.Revoke(c.Context(), req.RefreshToken); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal Server Error",
-		})
-	}
-	if err := h.sessionService.Record(c.Context(), uint(ownerID), tokens.RefreshToken, time.Unix(tokens.RefreshExpiresAt, 0)); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal Server Error",
-		})
+	// Rotation happens in one transaction: the presented token is revoked
+	// and the replacement recorded together, and a replayed token burns
+	// the whole family instead of quietly minting a fresh one.
+	if _, err := h.sessionService.Rotate(
+		c.Context(),
+		req.RefreshToken,
+		tokens.RefreshToken,
+		time.Unix(tokens.RefreshExpiresAt, 0),
+	); err != nil {
+		switch {
+		case errors.Is(err, service.ErrTokenReuse):
+			return replyErr(c, fiber.StatusUnauthorized, "Session terminated: refresh token was reused, sign in again")
+		case errors.Is(err, service.ErrExpiredToken):
+			return replyErr(c, fiber.StatusUnauthorized, "Refresh token is no longer valid")
+		default:
+			return replyInternal(c, err, "Failed to refresh session")
+		}
 	}
 
 	return c.JSON(tokens)
@@ -224,16 +176,12 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 
 	var req LogoutRequest
 	if err := c.Bind().Body(&req); err != nil || req.RefreshToken == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "refresh_token is required",
-		})
+		return replyBadRequest(c, "refresh_token is required")
 	}
 
-	revoked, err := h.sessionService.Revoke(c.Context(), req.RefreshToken)
+	revoked, err := h.sessionService.Revoke(c.Context(), req.RefreshToken, "logout")
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal Server Error",
-		})
+		return replyInternal(c, err, "Failed to revoke session")
 	}
 
 	return c.JSON(fiber.Map{"revoked": revoked})
@@ -243,17 +191,12 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 func (h *AuthHandler) LogoutAll(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": err.Error(),
-		})
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
 	}
 
-	revoked, err := h.sessionService.RevokeAllForUser(c.Context(), userID)
+	revoked, err := h.sessionService.RevokeAllForUser(c.Context(), userID, "logout-all")
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal Server Error",
-		})
+		return replyInternal(c, err, "Failed to revoke sessions")
 	}
 
 	return c.JSON(fiber.Map{"revoked_count": revoked})

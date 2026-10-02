@@ -56,6 +56,19 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	registerLimit := middleware.NewAuthRateLimiter(deps.Config.RateLimitMax, deps.Config.RateLimitWindow, false)
 	loginLimit := middleware.NewAuthRateLimiter(deps.Config.RateLimitMax, deps.Config.RateLimitWindow, true)
 
+	// Content creation is throttled per user, not per IP: it caps how fast
+	// a single account can flood the site regardless of where it connects
+	// from.
+	writeLimit := middleware.NewWriteRateLimiter(deps.Config.WriteLimitMax, deps.Config.WriteLimitWindow)
+
+	// Health is unauthenticated and dependency-free: it reports process
+	// liveness only, which is exactly what a container healthcheck needs.
+	// (Readiness, i.e. "is the database up", is the compose healthcheck's
+	// job via the postgres service itself.)
+	api.Get("/health", func(c fiber.Ctx) error {
+		return c.JSON(fiber.Map{"status": "ok"})
+	})
+
 	// Public
 	api.Post("/auth/register", registerLimit, deps.AuthHandler.Register)
 	api.Post("/auth/login", loginLimit, deps.AuthHandler.Login)
@@ -75,12 +88,14 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	protected.Put("/me", deps.ProfileHandler.Update)
 	protected.Put("/me/password", deps.ProfileHandler.ChangePassword)
 	protected.Post("/auth/logout-all", deps.AuthHandler.LogoutAll)
-	protected.Post("/channels", deps.ChannelHandler.Create)
+	protected.Post("/channels", writeLimit, deps.ChannelHandler.Create)
 	protected.Put("/channels/:id", deps.ChannelHandler.Update)
-	protected.Post("/posts", deps.PostHandler.Create)
+	// Creator or admin — the handler enforces ownership (see ChannelHandler.Delete).
+	protected.Delete("/channels/:id", deps.ChannelHandler.Delete)
+	protected.Post("/posts", writeLimit, deps.PostHandler.Create)
 	protected.Put("/posts/:id", deps.PostHandler.Update)
 	protected.Delete("/posts/:id", deps.PostHandler.Delete)
-	protected.Post("/posts/:id/comments", deps.CommentHandler.Create)
+	protected.Post("/posts/:id/comments", writeLimit, deps.CommentHandler.Create)
 	protected.Delete("/comments/:commentID", deps.CommentHandler.Delete)
 
 	// Admin only
@@ -90,5 +105,4 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	admin.Get("/admin/stats", deps.AdminHandler.Stats)
 	admin.Put("/admin/users/:id/roles", deps.AdminHandler.SetRoles)
 	admin.Delete("/admin/users/:id", deps.AdminHandler.DeleteUser)
-	admin.Delete("/channels/:id", deps.ChannelHandler.Delete)
 }

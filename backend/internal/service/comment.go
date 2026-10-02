@@ -49,27 +49,40 @@ func (s *CommentService) Create(ctx context.Context, userID, postID uint, conten
 	return &comment, nil
 }
 
-func (s *CommentService) ListByPost(ctx context.Context, postID uint) ([]models.Comment, error) {
+func (s *CommentService) ListByPost(ctx context.Context, postID uint, limit, offset int) ([]models.Comment, int64, error) {
 	var count int64
 
 	if err := s.db.WithContext(ctx).Model(&models.Post{}).Where("id = ?", postID).Count(&count).Error; err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if count == 0 {
-		return nil, ErrPostNotFound
+		return nil, 0, ErrPostNotFound
+	}
+
+	query := s.db.WithContext(ctx).
+		Preload("User").
+		Where("post_id = ?", postID)
+
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset > 0 {
+		query = query.Offset(offset)
 	}
 
 	var comments []models.Comment
 
-	if err := s.db.WithContext(ctx).
-		Preload("User").
-		Where("post_id = ?", postID).
-		Order("id").
-		Find(&comments).Error; err != nil {
-		return nil, err
+	if err := query.Order("id").Find(&comments).Error; err != nil {
+		return nil, 0, err
 	}
 
-	return comments, nil
+	var total int64
+	if err := s.db.WithContext(ctx).Model(&models.Comment{}).
+		Where("post_id = ?", postID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return comments, total, nil
 }
 
 func (s *CommentService) Delete(ctx context.Context, commentID, userID uint, isAdmin bool) error {

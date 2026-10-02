@@ -30,7 +30,7 @@ func (s *StatsService) Get(ctx context.Context) (*Stats, error) {
 		model any
 		out   *int64
 	}{
-		{&models.Channeler{}, &stats.Users},
+		{&models.User{}, &stats.Users},
 		{&models.Channel{}, &stats.Channels},
 		{&models.Post{}, &stats.Posts},
 		{&models.Comment{}, &stats.Comments},

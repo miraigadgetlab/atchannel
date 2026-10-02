@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"atchannel-backend/internal/service"
+	"atchannel-backend/internal/validation"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -32,19 +33,13 @@ func NewPostHandler(ps *service.PostService) *PostHandler {
 func (h *PostHandler) Create(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": err.Error(),
-		})
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
 	}
 
 	var req CreatePostRequest
 
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid request payload format",
-		})
+		return replyBadRequest(c, "Invalid request payload format")
 	}
 
 	req.Title = strings.TrimSpace(req.Title)
@@ -52,29 +47,21 @@ func (h *PostHandler) Create(c fiber.Ctx) error {
 
 	switch {
 	case req.ChannelID == 0:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "channel_id is required",
-		})
+		return replyBadRequest(c, "channel_id is required")
 	case req.Title == "" || req.Content == "":
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Title and content are required",
-		})
+		return replyBadRequest(c, "Title and content are required")
+	case validation.Length(req.Title) > validation.MaxPostTitle:
+		return replyBadRequest(c, "Title must be at most 200 characters long")
+	case validation.Length(req.Content) > validation.MaxPostContent:
+		return replyBadRequest(c, "Content must be at most 65536 characters long")
 	}
 
-	post, err := h.postService.Create(c.Context(), uint(userID), req.ChannelID, req.Title, req.Content)
+	post, err := h.postService.Create(c.Context(), userID, req.ChannelID, req.Title, req.Content)
 	if err != nil {
 		if errors.Is(err, service.ErrChannelNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not Found",
-				"message": "Channel does not exist",
-			})
+			return replyErr(c, fiber.StatusNotFound, "Channel does not exist")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to create post",
-		})
+		return replyInternal(c, err, "Failed to create post")
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(post)
@@ -86,10 +73,7 @@ func (h *PostHandler) List(c fiber.Ctx) error {
 	if raw := c.Query("channel_id"); raw != "" {
 		channelID, err := strconv.ParseUint(raw, 10, 64)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad Request",
-				"message": "channel_id must be a number",
-			})
+			return replyBadRequest(c, "channel_id must be a number")
 		}
 		id := uint(channelID)
 		filter.ChannelID = &id
@@ -97,55 +81,46 @@ func (h *PostHandler) List(c fiber.Ctx) error {
 
 	query, err := searchQuery(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": err.Error(),
-		})
+		return replyBadRequest(c, err.Error())
 	}
 	filter.Query = query
 
 	limit, offset, err := parsePagination(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": err.Error(),
-		})
+		return replyBadRequest(c, err.Error())
 	}
 	filter.Limit = limit
 	filter.Offset = offset
 
 	posts, err := h.postService.List(c.Context(), filter)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to fetch posts",
-		})
+		return replyInternal(c, err, "Failed to fetch posts")
 	}
 
-	return c.JSON(posts)
+	// Total is counted without the paging clause so the client can render
+	// a page count even when this page is the last one.
+	total, err := h.postService.Count(c.Context(), filter)
+	if err != nil {
+		return replyInternal(c, err, "Failed to count posts")
+	}
+
+	return c.JSON(fiber.Map{
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+		"items":  posts,
+	})
 }
 
 func (h *PostHandler) GetByID(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Post id must be a number",
-		})
+		return replyBadRequest(c, "Post id must be a number")
 	}
 
 	post, err := h.postService.GetByID(c.Context(), uint(id))
 	if err != nil {
-		if errors.Is(err, service.ErrPostNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not Found",
-				"message": "Post not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to fetch post",
-		})
+		return svcErr(c, err, "Failed to fetch post")
 	}
 
 	return c.JSON(post)
@@ -154,43 +129,31 @@ func (h *PostHandler) GetByID(c fiber.Ctx) error {
 func (h *PostHandler) Update(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": err.Error(),
-		})
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
 	}
 
 	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Post id must be a number",
-		})
+		return replyBadRequest(c, "Post id must be a number")
 	}
 
 	var req UpdatePostRequest
 
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid request payload format",
-		})
+		return replyBadRequest(c, "Invalid request payload format")
 	}
 
 	if req.Title == nil && req.Content == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Nothing to update: provide title and/or content",
-		})
+		return replyBadRequest(c, "Nothing to update: provide title and/or content")
 	}
 
 	if req.Title != nil {
 		trimmed := strings.TrimSpace(*req.Title)
 		if trimmed == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad Request",
-				"message": "Title cannot be empty",
-			})
+			return replyBadRequest(c, "Title cannot be empty")
+		}
+		if validation.Length(trimmed) > validation.MaxPostTitle {
+			return replyBadRequest(c, "Title must be at most 200 characters long")
 		}
 		req.Title = &trimmed
 	}
@@ -198,15 +161,15 @@ func (h *PostHandler) Update(c fiber.Ctx) error {
 	if req.Content != nil {
 		trimmed := strings.TrimSpace(*req.Content)
 		if trimmed == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad Request",
-				"message": "Content cannot be empty",
-			})
+			return replyBadRequest(c, "Content cannot be empty")
+		}
+		if validation.Length(trimmed) > validation.MaxPostContent {
+			return replyBadRequest(c, "Content must be at most 65536 characters long")
 		}
 		req.Content = &trimmed
 	}
 
-	post, err := h.postService.Update(c.Context(), uint(id), userID, service.UpdatePostInput{
+	post, err := h.postService.Update(c.Context(), uint(id), userID, currentIsAdmin(c), service.UpdatePostInput{
 		Title:   req.Title,
 		Content: req.Content,
 	})
@@ -220,18 +183,12 @@ func (h *PostHandler) Update(c fiber.Ctx) error {
 func (h *PostHandler) Delete(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": err.Error(),
-		})
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
 	}
 
 	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Post id must be a number",
-		})
+		return replyBadRequest(c, "Post id must be a number")
 	}
 
 	if err := h.postService.Delete(c.Context(), uint(id), userID, currentIsAdmin(c)); err != nil {
@@ -241,23 +198,11 @@ func (h *PostHandler) Delete(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"deleted": true})
 }
 
-// postErrorResponse maps service errors shared by update/delete to HTTP responses.
+// postErrorResponse maps the service errors shared by update/delete to HTTP
+// responses. It is svcErr plus the "you can only touch your own" case.
 func postErrorResponse(c fiber.Ctx, err error, internalMessage string) error {
-	switch {
-	case errors.Is(err, service.ErrPostNotFound):
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "Not Found",
-			"message": "Post not found",
-		})
-	case errors.Is(err, service.ErrForbidden):
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error":   "Forbidden",
-			"message": "You can only modify your own posts",
-		})
-	default:
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": internalMessage,
-		})
+	if errors.Is(err, service.ErrForbidden) {
+		return replyErr(c, fiber.StatusForbidden, "You can only modify your own posts")
 	}
+	return svcErr(c, err, internalMessage)
 }

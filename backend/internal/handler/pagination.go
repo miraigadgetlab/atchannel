@@ -13,7 +13,8 @@ const (
 	maxPageLimit     = 100
 )
 
-// ErrBadLimit and ErrBadOffset are returned by parsePagination for bad input.
+// ErrBadLimit, ErrBadOffset and ErrBadQuery are returned by the query
+// helpers for bad input.
 var (
 	ErrBadLimit  = errors.New("limit must be a number between 1 and 100")
 	ErrBadOffset = errors.New("offset must be a non-negative number")

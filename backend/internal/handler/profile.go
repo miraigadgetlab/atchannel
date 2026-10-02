@@ -2,16 +2,18 @@ package handler
 
 import (
 	"errors"
+	"net/url"
 	"strings"
 
 	"atchannel-backend/internal/service"
+	"atchannel-backend/internal/validation"
 
 	"github.com/gofiber/fiber/v3"
 )
 
 const (
-	maxAboutMeLength   = 1000
-	maxAvatarURLLength = 500
+	maxAboutMeLength   = validation.MaxAboutMe
+	maxAvatarURLLength = validation.MaxAvatarURL
 	minPasswordLength  = 8
 )
 
@@ -40,24 +42,15 @@ func NewProfileHandler(us *service.UserService, ss *service.SessionService) *Pro
 func (h *ProfileHandler) Me(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": err.Error(),
-		})
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
 	}
 
 	user, err := h.userService.GetByID(c.Context(), userID)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error":   "Unauthorized",
-				"message": "Account no longer exists",
-			})
+			return replyErr(c, fiber.StatusUnauthorized, "Account no longer exists")
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to fetch profile",
-		})
+		return replyInternal(c, err, "Failed to fetch profile")
 	}
 
 	return c.JSON(user)
@@ -66,64 +59,48 @@ func (h *ProfileHandler) Me(c fiber.Ctx) error {
 func (h *ProfileHandler) Update(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": err.Error(),
-		})
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
 	}
 
 	var req UpdateProfileRequest
 
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid request payload format",
-		})
+		return replyBadRequest(c, "Invalid request payload format")
 	}
 
 	if req.Name == nil && req.Email == nil && req.AboutMe == nil && req.AvatarURL == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Nothing to update: provide name, email, about_me and/or avatar_url",
-		})
+		return replyBadRequest(c, "Nothing to update: provide name, email, about_me and/or avatar_url")
 	}
 
 	if req.Name != nil {
 		trimmed := strings.TrimSpace(*req.Name)
-		if trimmed == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad Request",
-				"message": "Name cannot be empty",
-			})
+		if msg := validation.NameError(trimmed); msg != "" {
+			return replyBadRequest(c, msg)
 		}
 		req.Name = &trimmed
 	}
 
 	if req.Email != nil {
 		trimmed := strings.ToLower(strings.TrimSpace(*req.Email))
-		if !strings.Contains(trimmed, "@") {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad Request",
-				"message": "Invalid email address",
-			})
+		if msg := validation.EmailError(trimmed); msg != "" {
+			return replyBadRequest(c, msg)
 		}
 		req.Email = &trimmed
 	}
 
-	if req.AboutMe != nil && len(*req.AboutMe) > maxAboutMeLength {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "about_me must be at most 1000 characters long",
-		})
+	if req.AboutMe != nil && validation.Length(*req.AboutMe) > maxAboutMeLength {
+		return replyBadRequest(c, "about_me must be at most 1000 characters long")
 	}
 
 	if req.AvatarURL != nil {
 		trimmed := strings.TrimSpace(*req.AvatarURL)
-		if len(trimmed) > maxAvatarURLLength {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad Request",
-				"message": "avatar_url must be at most 500 characters long",
-			})
+		if validation.Length(trimmed) > maxAvatarURLLength {
+			return replyBadRequest(c, "avatar_url must be at most 500 characters long")
+		}
+		// Only http(s) is accepted: a javascript:, data: or file: URL in an
+		// avatar field is a stored XSS waiting for a renderer.
+		if trimmed != "" && !isSafeURL(trimmed) {
+			return replyBadRequest(c, "avatar_url must be an http or https URL")
 		}
 		req.AvatarURL = &trimmed
 	}
@@ -136,26 +113,12 @@ func (h *ProfileHandler) Update(c fiber.Ctx) error {
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrNameTaken):
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error":   "Conflict",
-				"message": "This name is already taken",
-			})
 		case errors.Is(err, service.ErrEmailTaken):
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error":   "Conflict",
-				"message": "An account with this email already exists",
-			})
+			return replyErr(c, fiber.StatusConflict, "An account with this email already exists")
 		case errors.Is(err, service.ErrUserNotFound):
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error":   "Unauthorized",
-				"message": "Account no longer exists",
-			})
+			return replyErr(c, fiber.StatusUnauthorized, "Account no longer exists")
 		default:
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error":   "Internal Server Error",
-				"message": "Failed to update profile",
-			})
+			return svcErr(c, err, "Failed to update profile")
 		}
 	}
 
@@ -165,67 +128,55 @@ func (h *ProfileHandler) Update(c fiber.Ctx) error {
 func (h *ProfileHandler) ChangePassword(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": err.Error(),
-		})
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
 	}
 
 	var req ChangePasswordRequest
 
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid request payload format",
-		})
+		return replyBadRequest(c, "Invalid request payload format")
 	}
 
 	switch {
 	case req.CurrentPassword == "" || req.NewPassword == "":
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "current_password and new_password are required",
-		})
+		return replyBadRequest(c, "current_password and new_password are required")
 	case len(req.NewPassword) < minPasswordLength:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "New password must be at least 8 characters long",
-		})
+		return replyBadRequest(c, "New password must be at least 8 characters long")
 	case req.NewPassword == req.CurrentPassword:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "New password must differ from the current one",
-		})
+		return replyBadRequest(c, "New password must differ from the current one")
 	}
 
 	if err := h.userService.ChangePassword(c.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
 		switch {
 		case errors.Is(err, service.ErrCurrentPassword):
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error":   "Unauthorized",
-				"message": "Current password is incorrect",
-			})
+			// 401 rather than 400: this is a failed credential check, and
+			// clients already retry 401s by asking the user to re-authenticate.
+			return replyErr(c, fiber.StatusUnauthorized, "Current password is incorrect")
 		case errors.Is(err, service.ErrUserNotFound):
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error":   "Unauthorized",
-				"message": "Account no longer exists",
-			})
+			return replyErr(c, fiber.StatusUnauthorized, "Account no longer exists")
 		default:
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error":   "Internal Server Error",
-				"message": "Failed to change password",
-			})
+			return replyInternal(c, err, "Failed to change password")
 		}
 	}
 
 	// A password change signs every existing session out.
-	revoked, err := h.sessionService.RevokeAllForUser(c.Context(), userID)
+	revoked, err := h.sessionService.RevokeAllForUser(c.Context(), userID, "password")
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Password changed but sessions could not be revoked",
-		})
+		// The password did change, so report the session state honestly
+		// rather than pretending the whole operation failed.
+		logSessionFailure(c, "password change", err)
+		return c.JSON(fiber.Map{"changed": true, "sessions_revoked": 0, "warning": "password changed but sessions could not be revoked"})
 	}
 
 	return c.JSON(fiber.Map{"changed": true, "sessions_revoked": revoked})
+}
+
+// isSafeURL reports whether raw parses as an absolute http(s) URL. Anything
+// else (javascript:, data:, file:, a bare path) is rejected.
+func isSafeURL(raw string) bool {
+	parsed, err := url.ParseRequestURI(raw)
+	if err != nil {
+		return false
+	}
+	return parsed.Scheme == "http" || parsed.Scheme == "https"
 }

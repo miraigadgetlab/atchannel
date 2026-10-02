@@ -24,6 +24,17 @@ type Config struct {
 	AccountLockMax    int
 	AccountLockWindow time.Duration
 
+	// WriteLimitMax/WriteLimitWindow throttles content creation per user,
+	// so one account cannot flood the site faster than a mod can clean up.
+	WriteLimitMax    int
+	WriteLimitWindow time.Duration
+
+	// TrustedProxies is the allowlist of proxy addresses (IPs or CIDRs) whose
+	// X-Forwarded-For header is believed. Empty means the app talks to clients
+	// directly and any forwarded header is ignored — the safe default, since a
+	// client can forge that header to escape per-IP rate limits.
+	TrustedProxies []string
+
 	// Bootstrap admin account. Seeding only happens when both
 	// AdminEmail and AdminPassword are provided.
 	AdminName     string
@@ -50,6 +61,9 @@ func LoadConfig() *Config {
 		RateLimitWindow:   envDuration("RATE_LIMIT_WINDOW", time.Minute),
 		AccountLockMax:    envInt("ACCOUNT_LOCK_MAX", 5),
 		AccountLockWindow: envDuration("ACCOUNT_LOCK_WINDOW", 15*time.Minute),
+		WriteLimitMax:     envInt("WRITE_LIMIT_MAX", 30),
+		WriteLimitWindow:  envDuration("WRITE_LIMIT_WINDOW", time.Minute),
+		TrustedProxies:    parseList(os.Getenv("TRUSTED_PROXIES")),
 		AdminName:         os.Getenv("ADMIN_NAME"),
 		AdminEmail:        os.Getenv("ADMIN_EMAIL"),
 		AdminPassword:     os.Getenv("ADMIN_PASSWORD"),
@@ -65,8 +79,14 @@ func LoadConfig() *Config {
 	}
 
 	log.Printf("CORS allowed origins: %v", cfg.AllowedOrigins)
-	log.Printf("rate limits: %d attempts/%s per IP, account lock %d failures/%s",
-		cfg.RateLimitMax, cfg.RateLimitWindow, cfg.AccountLockMax, cfg.AccountLockWindow)
+	log.Printf("rate limits: %d attempts/%s per IP, account lock %d failures/%s, writes %d/%s per user",
+		cfg.RateLimitMax, cfg.RateLimitWindow, cfg.AccountLockMax, cfg.AccountLockWindow,
+		cfg.WriteLimitMax, cfg.WriteLimitWindow)
+	if len(cfg.TrustedProxies) == 0 {
+		log.Print("trusted proxies: none (X-Forwarded-For ignored)")
+	} else {
+		log.Printf("trusted proxies: %v", cfg.TrustedProxies)
+	}
 
 	return cfg
 }
@@ -102,6 +122,17 @@ func envDuration(name string, fallback time.Duration) time.Duration {
 	}
 
 	return value
+}
+
+// parseList turns a comma separated value into a trimmed list, dropping blanks.
+func parseList(raw string) []string {
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		if item := strings.TrimSpace(part); item != "" {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // parseOrigins turns a comma separated CORS_ORIGINS value into a list,

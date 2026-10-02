@@ -2,7 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"atchannel-backend/internal/config"
 	"atchannel-backend/internal/db"
@@ -41,10 +47,26 @@ func main() {
 	channelHandler := handler.NewChannelHandler(channelService, postService)
 	postHandler := handler.NewPostHandler(postService)
 	commentHandler := handler.NewCommentHandler(commentService)
-	adminHandler := handler.NewAdminHandler(userService, statsService)
+	adminHandler := handler.NewAdminHandler(userService, statsService, sessionService)
 	profileHandler := handler.NewProfileHandler(userService, sessionService)
 
-	app := fiber.New()
+	fiberCfg := fiber.Config{
+		// A single abusive client must not be able to pin memory with a
+		// giant body. 1MB comfortably fits the longest allowed post.
+		BodyLimit: 1 << 20,
+	}
+
+	// Behind a reverse proxy every request arrives from the proxy's address,
+	// so per-IP rate limits would collapse into a single bucket — or worse,
+	// be escapable by forging X-Forwarded-For. Trust is opt-in: only the
+	// listed proxies get their forwarded header believed.
+	if len(cfg.TrustedProxies) > 0 {
+		fiberCfg.TrustProxy = true
+		fiberCfg.ProxyHeader = fiber.HeaderXForwardedFor
+		fiberCfg.TrustProxyConfig.Proxies = cfg.TrustedProxies
+	}
+
+	app := fiber.New(fiberCfg)
 
 	router.SetupRoutes(app, router.RouterDeps{
 		Config:         cfg,
@@ -56,6 +78,27 @@ func main() {
 		ProfileHandler: profileHandler,
 	})
 
+	// Graceful shutdown: SIGTERM/SIGINT lets in-flight requests finish
+	// instead of dropping them when the container stops.
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-shutdown
+		log.Print("shutting down...")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := app.ShutdownWithContext(ctx); err != nil {
+			log.Printf("shutdown error: %v", err)
+		}
+	}()
+
 	log.Printf("listening on %s", cfg.Port)
-	log.Fatal(app.Listen(cfg.Port))
+	if err := app.Listen(cfg.Port); err != nil && !errors.Is(err, net.ErrClosed) {
+		log.Fatalf("server error: %v", err)
+	}
+
+	log.Print("stopped cleanly")
 }

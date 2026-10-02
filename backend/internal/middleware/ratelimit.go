@@ -9,6 +9,17 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/limiter"
 )
 
+// clientKey resolves the rate limit bucket for a request.
+//
+// Behind a reverse proxy every request arrives from the proxy's address, so
+// c.IP() alone would put all users in one bucket. Fiber resolves this: when
+// Config.TrustProxy is set (see TRUSTED_PROXIES) c.IP() walks the
+// X-Forwarded-For chain and stops at the first untrusted hop, so a client
+// cannot forge its way out of its own bucket.
+func clientKey(c fiber.Ctx) string {
+	return c.IP()
+}
+
 // NewAuthRateLimiter throttles a public auth endpoint per client IP.
 //
 // skipSuccess makes successful attempts refund their slot, so only failed
@@ -20,11 +31,36 @@ func NewAuthRateLimiter(max int, window time.Duration, skipSuccess bool) fiber.H
 		Max:                    max,
 		Expiration:             window,
 		SkipSuccessfulRequests: skipSuccess,
-		KeyGenerator:           func(c fiber.Ctx) string { return c.IP() },
+		KeyGenerator:           clientKey,
 		LimitReached: func(c fiber.Ctx) error {
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 				"error":   "Too Many Requests",
 				"message": "Too many attempts from this address, try again later",
+			})
+		},
+	})
+}
+
+// NewWriteRateLimiter throttles content creation (posts, comments, channels)
+// per authenticated user. Every attempt counts — there is no "success" to
+// refund — because the goal is capping how fast one account can flood the
+// site, not catching mistakes.
+func NewWriteRateLimiter(max int, window time.Duration) fiber.Handler {
+	return limiter.New(limiter.Config{
+		Max:        max,
+		Expiration: window,
+		KeyGenerator: func(c fiber.Ctx) string {
+			// Prefer the authenticated identity: one person on five devices
+			// (or five IPs) should still share a single budget.
+			if claims, ok := c.Locals("user").(*UserClaims); ok && claims != nil {
+				return "u:" + claims.UserID
+			}
+			return "ip:" + clientKey(c)
+		},
+		LimitReached: func(c fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error":   "Too Many Requests",
+				"message": "You are posting too quickly, slow down",
 			})
 		},
 	})
