@@ -14,6 +14,7 @@ type RouterDeps struct {
 	AuthHandler    *handler.AuthHandler
 	ChannelHandler *handler.ChannelHandler
 	PostHandler    *handler.PostHandler
+	CommentHandler *handler.CommentHandler
 }
 
 func SetupRoutes(app *fiber.App, deps RouterDeps) {
@@ -34,6 +35,7 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	api.Get("/channels", deps.ChannelHandler.List)
 	api.Get("/posts", deps.PostHandler.List)
 	api.Get("/posts/:id", deps.PostHandler.GetByID)
+	api.Get("/posts/:id/comments", deps.CommentHandler.List)
 
 	// Authenticated
 	protected := api.Group("", authGuard)
@@ -44,4 +46,8 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	})
 	protected.Post("/channels", deps.ChannelHandler.Create)
 	protected.Post("/posts", deps.PostHandler.Create)
+	protected.Put("/posts/:id", deps.PostHandler.Update)
+	protected.Delete("/posts/:id", deps.PostHandler.Delete)
+	protected.Post("/posts/:id/comments", deps.CommentHandler.Create)
+	protected.Delete("/comments/:commentID", deps.CommentHandler.Delete)
 }

@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"atchannel-backend/internal/middleware"
 	"atchannel-backend/internal/service"
 
 	"github.com/gofiber/fiber/v3"
@@ -17,6 +16,11 @@ type CreatePostRequest struct {
 	Content   string `json:"content"`
 }
 
+type UpdatePostRequest struct {
+	Title   *string `json:"title"`
+	Content *string `json:"content"`
+}
+
 type PostHandler struct {
 	postService *service.PostService
 }
@@ -26,19 +30,11 @@ func NewPostHandler(ps *service.PostService) *PostHandler {
 }
 
 func (h *PostHandler) Create(c fiber.Ctx) error {
-	claims, ok := c.Locals("user").(*middleware.UserClaims)
-	if !ok || claims == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": "Missing authentication context",
-		})
-	}
-
-	userID, err := strconv.ParseUint(claims.UserID, 10, 64)
+	userID, err := currentUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error":   "Unauthorized",
-			"message": "Invalid user identity in token",
+			"message": err.Error(),
 		})
 	}
 
@@ -158,4 +154,115 @@ func (h *PostHandler) GetByID(c fiber.Ctx) error {
 	}
 
 	return c.JSON(post)
+}
+
+func (h *PostHandler) Update(c fiber.Ctx) error {
+	userID, err := currentUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Unauthorized",
+			"message": err.Error(),
+		})
+	}
+
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad Request",
+			"message": "Post id must be a number",
+		})
+	}
+
+	var req UpdatePostRequest
+
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad Request",
+			"message": "Invalid request payload format",
+		})
+	}
+
+	if req.Title == nil && req.Content == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad Request",
+			"message": "Nothing to update: provide title and/or content",
+		})
+	}
+
+	if req.Title != nil {
+		trimmed := strings.TrimSpace(*req.Title)
+		if trimmed == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad Request",
+				"message": "Title cannot be empty",
+			})
+		}
+		req.Title = &trimmed
+	}
+
+	if req.Content != nil {
+		trimmed := strings.TrimSpace(*req.Content)
+		if trimmed == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad Request",
+				"message": "Content cannot be empty",
+			})
+		}
+		req.Content = &trimmed
+	}
+
+	post, err := h.postService.Update(c.Context(), uint(id), userID, service.UpdatePostInput{
+		Title:   req.Title,
+		Content: req.Content,
+	})
+	if err != nil {
+		return postErrorResponse(c, err, "Failed to update post")
+	}
+
+	return c.JSON(post)
+}
+
+func (h *PostHandler) Delete(c fiber.Ctx) error {
+	userID, err := currentUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Unauthorized",
+			"message": err.Error(),
+		})
+	}
+
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad Request",
+			"message": "Post id must be a number",
+		})
+	}
+
+	if err := h.postService.Delete(c.Context(), uint(id), userID); err != nil {
+		return postErrorResponse(c, err, "Failed to delete post")
+	}
+
+	return c.JSON(fiber.Map{"deleted": true})
+}
+
+// postErrorResponse maps service errors shared by update/delete to HTTP responses.
+func postErrorResponse(c fiber.Ctx, err error, internalMessage string) error {
+	switch {
+	case errors.Is(err, service.ErrPostNotFound):
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   "Not Found",
+			"message": "Post not found",
+		})
+	case errors.Is(err, service.ErrForbidden):
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":   "Forbidden",
+			"message": "You can only modify your own posts",
+		})
+	default:
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Internal Server Error",
+			"message": internalMessage,
+		})
+	}
 }

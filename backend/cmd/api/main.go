@@ -22,10 +22,12 @@ func main() {
 	userService := service.NewUserService(db.DB)
 	channelService := service.NewChannelService(db.DB)
 	postService := service.NewPostService(db.DB)
+	commentService := service.NewCommentService(db.DB)
 
 	authHandler := handler.NewAuthHandler(tokenService, userService)
 	channelHandler := handler.NewChannelHandler(channelService)
 	postHandler := handler.NewPostHandler(postService)
+	commentHandler := handler.NewCommentHandler(commentService)
 
 	app := fiber.New()
 
@@ -34,6 +36,7 @@ func main() {
 		AuthHandler:    authHandler,
 		ChannelHandler: channelHandler,
 		PostHandler:    postHandler,
+		CommentHandler: commentHandler,
 	})
 
 	log.Printf("listening on %s", cfg.Port)
