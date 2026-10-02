@@ -143,7 +143,6 @@ func (h *AdminHandler) DeleteUser(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"deleted": true})
 }
 
-
 func joinRoles(roles []string) string {
 	return strings.Join(roles, ", ")
 }

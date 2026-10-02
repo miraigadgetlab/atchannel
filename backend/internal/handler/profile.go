@@ -28,11 +28,12 @@ type ChangePasswordRequest struct {
 }
 
 type ProfileHandler struct {
-	userService *service.UserService
+	userService    *service.UserService
+	sessionService *service.SessionService
 }
 
-func NewProfileHandler(us *service.UserService) *ProfileHandler {
-	return &ProfileHandler{userService: us}
+func NewProfileHandler(us *service.UserService, ss *service.SessionService) *ProfileHandler {
+	return &ProfileHandler{userService: us, sessionService: ss}
 }
 
 // Me returns the caller's own account record (password is never serialized).
@@ -217,5 +218,14 @@ func (h *ProfileHandler) ChangePassword(c fiber.Ctx) error {
 		}
 	}
 
-	return c.JSON(fiber.Map{"changed": true})
+	// A password change signs every existing session out.
+	revoked, err := h.sessionService.RevokeAllForUser(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Internal Server Error",
+			"message": "Password changed but sessions could not be revoked",
+		})
+	}
+
+	return c.JSON(fiber.Map{"changed": true, "sessions_revoked": revoked})
 }

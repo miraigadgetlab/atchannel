@@ -25,6 +25,7 @@ func main() {
 	postService := service.NewPostService(db.DB)
 	commentService := service.NewCommentService(db.DB)
 	statsService := service.NewStatsService(db.DB)
+	sessionService := service.NewSessionService(db.DB)
 
 	if cfg.AdminEmail != "" && cfg.AdminPassword != "" {
 		admin, err := userService.EnsureAdmin(context.Background(), cfg.AdminName, cfg.AdminEmail, cfg.AdminPassword)
@@ -34,12 +35,12 @@ func main() {
 		log.Printf("admin account ready: %s <%s> roles=%v", admin.Name, admin.Email, admin.Roles)
 	}
 
-	authHandler := handler.NewAuthHandler(tokenService, userService)
+	authHandler := handler.NewAuthHandler(tokenService, userService, sessionService)
 	channelHandler := handler.NewChannelHandler(channelService, postService)
 	postHandler := handler.NewPostHandler(postService)
 	commentHandler := handler.NewCommentHandler(commentService)
 	adminHandler := handler.NewAdminHandler(userService, statsService)
-	profileHandler := handler.NewProfileHandler(userService)
+	profileHandler := handler.NewProfileHandler(userService, sessionService)
 
 	app := fiber.New()
 

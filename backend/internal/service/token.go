@@ -18,9 +18,10 @@ var (
 )
 
 type TokenPair struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresAt    int64  `json:"expires_at"`
+	AccessToken      string `json:"access_token"`
+	RefreshToken     string `json:"refresh_token"`
+	ExpiresAt        int64  `json:"expires_at"`
+	RefreshExpiresAt int64  `json:"refresh_expires_at"`
 }
 
 type TokenService struct {
@@ -85,9 +86,10 @@ func (s *TokenService) GenerateTokenPair(userID, email string, roles []string) (
 	}
 
 	return &TokenPair{
-		AccessToken:  accessSigned,
-		RefreshToken: refreshSigned,
-		ExpiresAt:    accessExpiry.Unix(),
+		AccessToken:      accessSigned,
+		RefreshToken:     refreshSigned,
+		ExpiresAt:        accessExpiry.Unix(),
+		RefreshExpiresAt: refreshExpiry.Unix(),
 	}, nil
 }
 
@@ -114,8 +116,10 @@ func (s *TokenService) ValidateToken(tokenStr string) (*middleware.UserClaims, e
 	return claims, nil
 }
 
-func (s *TokenService) RefreshTokens(refreshTokenStr string) (*TokenPair, error) {
-	claims, err := s.ValidateToken(refreshTokenStr)
+// ValidateRefreshToken checks signature, expiry and that the token really is
+// a refresh token (an access token is rejected here).
+func (s *TokenService) ValidateRefreshToken(tokenStr string) (*middleware.UserClaims, error) {
+	claims, err := s.ValidateToken(tokenStr)
 	if err != nil {
 		return nil, err
 	}
@@ -124,5 +128,5 @@ func (s *TokenService) RefreshTokens(refreshTokenStr string) (*TokenPair, error)
 		return nil, ErrWrongType
 	}
 
-	return s.GenerateTokenPair(claims.UserID, claims.Email, claims.Roles)
+	return claims, nil
 }

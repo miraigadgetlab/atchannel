@@ -39,6 +39,7 @@ func Migrate() {
 		&models.Channel{},
 		&models.Post{},
 		&models.Comment{},
+		&models.RefreshToken{},
 	)
 
 	if err != nil {

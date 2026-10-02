@@ -33,6 +33,7 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	api.Post("/auth/register", deps.AuthHandler.Register)
 	api.Post("/auth/login", deps.AuthHandler.Login)
 	api.Post("/auth/refresh", deps.AuthHandler.Refresh)
+	api.Post("/auth/logout", deps.AuthHandler.Logout)
 
 	api.Get("/channels", deps.ChannelHandler.List)
 	api.Get("/channels/:id", deps.ChannelHandler.GetByID)
@@ -46,6 +47,7 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	protected.Get("/me", deps.ProfileHandler.Me)
 	protected.Put("/me", deps.ProfileHandler.Update)
 	protected.Put("/me/password", deps.ProfileHandler.ChangePassword)
+	protected.Post("/auth/logout-all", deps.AuthHandler.LogoutAll)
 	protected.Post("/channels", deps.ChannelHandler.Create)
 	protected.Post("/posts", deps.PostHandler.Create)
 	protected.Put("/posts/:id", deps.PostHandler.Update)

@@ -40,3 +40,14 @@ type Comment struct {
 	User      Channeler `gorm:"foreignKey:UserID" json:"user"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// RefreshToken is one active session. Only the SHA-256 of the token is stored,
+// so a database leak cannot be replayed as a login.
+type RefreshToken struct {
+	ID        uint       `gorm:"primaryKey" json:"id"`
+	UserID    uint       `gorm:"not null;index" json:"user_id"`
+	TokenHash string     `gorm:"not null;uniqueIndex" json:"-"`
+	ExpiresAt time.Time  `gorm:"not null;index" json:"expires_at"`
+	CreatedAt time.Time  `json:"created_at"`
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+}

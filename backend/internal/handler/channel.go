@@ -20,13 +20,13 @@ type CreateChannelRequest struct {
 
 // ChannelDetailResponse is the channel view with a paginated slice of its posts.
 type ChannelDetailResponse struct {
-	ID          uint            `json:"id"`
-	Name        string          `json:"name"`
-	Title       string          `json:"title"`
-	Description string          `json:"description"`
-	CreatedAt   time.Time       `json:"created_at"`
-	PostCount   int64           `json:"post_count"`
-	Posts       []models.Post   `json:"posts"`
+	ID          uint          `json:"id"`
+	Name        string        `json:"name"`
+	Title       string        `json:"title"`
+	Description string        `json:"description"`
+	CreatedAt   time.Time     `json:"created_at"`
+	PostCount   int64         `json:"post_count"`
+	Posts       []models.Post `json:"posts"`
 }
 
 type ChannelHandler struct {

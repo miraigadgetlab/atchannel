@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"atchannel-backend/internal/service"
 
@@ -22,14 +23,16 @@ type RegisterRequest struct {
 }
 
 type AuthHandler struct {
-	tokenService *service.TokenService
-	userService  *service.UserService
+	tokenService   *service.TokenService
+	userService    *service.UserService
+	sessionService *service.SessionService
 }
 
-func NewAuthHandler(ts *service.TokenService, us *service.UserService) *AuthHandler {
+func NewAuthHandler(ts *service.TokenService, us *service.UserService, ss *service.SessionService) *AuthHandler {
 	return &AuthHandler{
-		tokenService: ts,
-		userService:  us,
+		tokenService:   ts,
+		userService:    us,
+		sessionService: ss,
 	}
 }
 
@@ -123,6 +126,14 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 		})
 	}
 
+	// Track the refresh token so it can be revoked later.
+	if err := h.sessionService.Record(c.Context(), user.ID, tokens.RefreshToken, time.Unix(tokens.RefreshExpiresAt, 0)); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Internal Server Error",
+			"message": "Failed to create session",
+		})
+	}
+
 	return c.JSON(tokens)
 }
 
@@ -138,12 +149,96 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 		})
 	}
 
-	tokens, err := h.tokenService.RefreshTokens(req.RefreshToken)
+	claims, err := h.tokenService.ValidateRefreshToken(req.RefreshToken)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid or expired refresh token",
 		})
 	}
 
+	// The token must still be an active session: not revoked, not expired.
+	valid, err := h.sessionService.IsValid(c.Context(), req.RefreshToken)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal Server Error",
+		})
+	}
+	if !valid {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Refresh token is no longer valid",
+		})
+	}
+
+	ownerID, err := strconv.ParseUint(claims.UserID, 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid or expired refresh token",
+		})
+	}
+
+	tokens, err := h.tokenService.GenerateTokenPair(claims.UserID, claims.Email, claims.Roles)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Internal Server Error",
+			"message": "Failed to generate security tokens",
+		})
+	}
+
+	// Rotation: the presented token dies, the new one takes its place.
+	if _, err := h.sessionService.Revoke(c.Context(), req.RefreshToken); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal Server Error",
+		})
+	}
+	if err := h.sessionService.Record(c.Context(), uint(ownerID), tokens.RefreshToken, time.Unix(tokens.RefreshExpiresAt, 0)); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal Server Error",
+		})
+	}
+
 	return c.JSON(tokens)
+}
+
+// Logout revokes the presented refresh token. It is intentionally idempotent:
+// an unknown or already revoked token just reports revoked:false with a 200.
+func (h *AuthHandler) Logout(c fiber.Ctx) error {
+	type LogoutRequest struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	var req LogoutRequest
+	if err := c.Bind().Body(&req); err != nil || req.RefreshToken == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "refresh_token is required",
+		})
+	}
+
+	revoked, err := h.sessionService.Revoke(c.Context(), req.RefreshToken)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal Server Error",
+		})
+	}
+
+	return c.JSON(fiber.Map{"revoked": revoked})
+}
+
+// LogoutAll kills every session of the caller ("log out everywhere").
+func (h *AuthHandler) LogoutAll(c fiber.Ctx) error {
+	userID, err := currentUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Unauthorized",
+			"message": err.Error(),
+		})
+	}
+
+	revoked, err := h.sessionService.RevokeAllForUser(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal Server Error",
+		})
+	}
+
+	return c.JSON(fiber.Map{"revoked_count": revoked})
 }
