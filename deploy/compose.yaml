@@ -24,6 +24,7 @@ services:
       - DB_PASSWORD=atchannel_password
       - DB_NAME=atchannel_db
       - DB_PORT=5432
+      - JWT_SECRET=fhdmSFpZ5VnolumrpbPoy92pG/nS9Ftmg1EDRpSKmCc=
     depends_on:
       - postgres
 

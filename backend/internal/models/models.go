@@ -3,10 +3,13 @@ package models
 import "time"
 
 type Channeler struct {
-	ID        uint   `gorm:"primaryKey" json:"id"`
-	Name      string `gorm:"uniqueIndex;not null" json:"name"`
-	AboutMe   string `json:"about_me"`
-	AvatarUrl string `json:"avatar_url,omitempty"`
+	ID        uint        `gorm:"primaryKey" json:"id"`
+	Name      string      `gorm:"uniqueIndex;not null" json:"name"`
+	Email     string      `gorm:"uniqueIndex;not null" json:"email" db:"email"`
+	Password  string      `json:"-" db:"password"`
+	Roles     StringArray `gorm:"type:text[];not null;default:'{}'" json:"roles"`
+	AboutMe   string      `json:"about_me"`
+	AvatarUrl string      `json:"avatar_url,omitempty"`
 }
 
 type Channel struct {
