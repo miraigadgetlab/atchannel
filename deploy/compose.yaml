@@ -28,6 +28,8 @@ services:
       - ADMIN_NAME=admin
       - ADMIN_EMAIL=admin@channel.io
       - ADMIN_PASSWORD=admin1234
+      # comma separated origins, "*" for any (tighten this in production)
+      - CORS_ORIGINS=*
     depends_on:
       - postgres
 

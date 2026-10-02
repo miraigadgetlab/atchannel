@@ -6,6 +6,7 @@ import (
 	"atchannel-backend/internal/middleware"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -20,6 +21,26 @@ type RouterDeps struct {
 }
 
 func SetupRoutes(app *fiber.App, deps RouterDeps) {
+	// CORS first so preflight OPTIONS is answered before any auth guard.
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: deps.Config.AllowedOrigins,
+		AllowMethods: []string{
+			fiber.MethodGet,
+			fiber.MethodHead,
+			fiber.MethodPost,
+			fiber.MethodPut,
+			fiber.MethodPatch,
+			fiber.MethodDelete,
+		},
+		AllowHeaders: []string{
+			fiber.HeaderOrigin,
+			fiber.HeaderContentType,
+			fiber.HeaderAccept,
+			fiber.HeaderAuthorization,
+		},
+		MaxAge: 3600,
+	}))
+
 	app.Use(middleware.RequestLogger())
 
 	api := app.Group("/api/v1")
