@@ -1,0 +1,20 @@
+# Build context hygiene: none of this belongs in the image.
+.git
+.gitignore
+
+# Secrets live in deploy/.env, but keep them out of the context too.
+.env
+.env.*
+
+# Local build artifacts and editor state.
+main
+*.exe
+*.test
+*.out
+
+# Docs and the frontend (served separately).
+README*
+frontend/
+
+# Test files are not needed to build the binary.
+**/*_test.go

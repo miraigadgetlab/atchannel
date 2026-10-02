@@ -2,42 +2,65 @@ services:
   postgres:
     image: docker.io/library/postgres:16-alpine
     container_name: atchannel_db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: atchannel_user
-      POSTGRES_PASSWORD: atchannel_password
-      POSTGRES_DB: atchannel_db
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-atchannel_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-atchannel_db}
+    # Not published to the host: only the backend container reaches it over
+    # the compose network. Uncomment to poke at it from the host.
+    # ports:
+    #   - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   backend:
     build:
       context: ../backend
       dockerfile: Dockerfile
     container_name: atchannel_backend
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - DB_HOST=postgres
-      - DB_USER=atchannel_user
-      - DB_PASSWORD=atchannel_password
-      - DB_NAME=atchannel_db
+      - DB_USER=${POSTGRES_USER:-atchannel_user}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      - DB_NAME=${POSTGRES_DB:-atchannel_db}
       - DB_PORT=5432
-      - JWT_SECRET=fhdmSFpZ5VnolumrpbPoy92pG/nS9Ftmg1EDRpSKmCc=
-      - ADMIN_NAME=admin
-      - ADMIN_EMAIL=admin@channel.io
-      - ADMIN_PASSWORD=admin1234
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in deploy/.env}
+      - ADMIN_NAME=${ADMIN_NAME:-}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       # comma separated origins, "*" for any (tighten this in production)
-      - CORS_ORIGINS=*
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      # trusted proxy IPs/CIDRs whose X-Forwarded-For is believed (empty = trust none)
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-}
       # brute force protection: attempts per window per IP (register counts
       # every try, login counts only failures) + per-account failed login lock
-      - RATE_LIMIT_MAX=10
-      - RATE_LIMIT_WINDOW=1m
-      - ACCOUNT_LOCK_MAX=5
-      - ACCOUNT_LOCK_WINDOW=15m
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-10}
+      - RATE_LIMIT_WINDOW=${RATE_LIMIT_WINDOW:-1m}
+      - ACCOUNT_LOCK_MAX=${ACCOUNT_LOCK_MAX:-5}
+      - ACCOUNT_LOCK_WINDOW=${ACCOUNT_LOCK_WINDOW:-15m}
+      # content creation (posts/comments/channels) per user per window
+      - WRITE_LIMIT_MAX=${WRITE_LIMIT_MAX:-30}
+      - WRITE_LIMIT_WINDOW=${WRITE_LIMIT_WINDOW:-1m}
+    # Healthcheck is what makes `depends_on: condition: service_healthy` work:
+    # the backend only starts once postgres really accepts connections.
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
 
 volumes:
   postgres_data:

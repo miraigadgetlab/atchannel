@@ -1,4 +1,6 @@
-FROM golang:alpine AS builder
+# syntax=docker/dockerfile:1
+
+FROM docker.io/library/golang:1.26-alpine AS builder
 
 WORKDIR /app
 
@@ -7,13 +9,18 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags='-s -w' -o main ./cmd/api
 
-FROM alpine:latest
+# Distroless-style minimal image: no shell, no package manager, nothing to
+# exploit even if the process is compromised. Runs as a fixed non-root uid.
+FROM docker.io/library/alpine:3.22
 
+RUN adduser -D -H -u 10001 app
 WORKDIR /app
 
 COPY --from=builder /app/main .
+
+USER app
 
 EXPOSE 3000
 
