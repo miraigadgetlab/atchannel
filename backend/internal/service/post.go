@@ -14,8 +14,11 @@ var ErrPostNotFound = errors.New("post not found")
 
 type PostFilter struct {
 	ChannelID *uint
-	Limit     int
-	Offset    int
+	// Query, when non-empty, matches posts whose title or content contains
+	// it (case-insensitive, wildcards treated literally).
+	Query  string
+	Limit  int
+	Offset int
 }
 
 // UpdatePostInput carries only the fields the client wants to change;
@@ -66,6 +69,11 @@ func (s *PostService) List(ctx context.Context, filter PostFilter) ([]models.Pos
 
 	if filter.ChannelID != nil {
 		query = query.Where("channel_id = ?", *filter.ChannelID)
+	}
+
+	if filter.Query != "" {
+		pattern := likePattern(filter.Query)
+		query = query.Where("(title ILIKE ? OR content ILIKE ?)", pattern, pattern)
 	}
 
 	if filter.Limit > 0 {

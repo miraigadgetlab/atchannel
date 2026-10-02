@@ -76,6 +76,7 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	protected.Put("/me/password", deps.ProfileHandler.ChangePassword)
 	protected.Post("/auth/logout-all", deps.AuthHandler.LogoutAll)
 	protected.Post("/channels", deps.ChannelHandler.Create)
+	protected.Put("/channels/:id", deps.ChannelHandler.Update)
 	protected.Post("/posts", deps.PostHandler.Create)
 	protected.Put("/posts/:id", deps.PostHandler.Update)
 	protected.Delete("/posts/:id", deps.PostHandler.Delete)

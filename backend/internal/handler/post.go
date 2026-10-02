@@ -95,6 +95,15 @@ func (h *PostHandler) List(c fiber.Ctx) error {
 		filter.ChannelID = &id
 	}
 
+	query, err := searchQuery(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad Request",
+			"message": err.Error(),
+		})
+	}
+	filter.Query = query
+
 	limit, offset, err := parsePagination(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
