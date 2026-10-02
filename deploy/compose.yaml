@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: atchannel_db
+    environment:
+      POSTGRES_USER: atchannel_user
+      POSTGRES_PASSWORD: atchannel_password
+      POSTGRES_DB: atchannel_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: atchannel_backend
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=atchannel_user
+      - DB_PASSWORD=atchannel_password
+      - DB_NAME=atchannel_db
+      - DB_PORT=5432
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:

@@ -1,0 +1,3 @@
+# atchannel
+
+Bir forum tarzinda site yazmak istedim, ismini steins;gate'deki @channel'dan aliyor (steins;gate mukemmel). Normalde animedeki/visual noveldeki halini yapmak icin baslamistim ama sonradan fark ettim ki cok kullanissiz ve "eski" kaliyordu yani retro degilde direk eski ve cok az ozelligi vardi gordugume gore, bende sadece ismini alip kendi kafama gore takilarak boyle bir site ortaya cikardim. Acik kaynak cunku neden olmasin? 
