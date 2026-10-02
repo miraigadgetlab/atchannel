@@ -239,7 +239,7 @@ func (h *PostHandler) Delete(c fiber.Ctx) error {
 		})
 	}
 
-	if err := h.postService.Delete(c.Context(), uint(id), userID); err != nil {
+	if err := h.postService.Delete(c.Context(), uint(id), userID, currentIsAdmin(c)); err != nil {
 		return postErrorResponse(c, err, "Failed to delete post")
 	}
 

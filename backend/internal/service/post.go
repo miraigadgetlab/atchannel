@@ -116,7 +116,7 @@ func (s *PostService) Update(ctx context.Context, id, userID uint, in UpdatePost
 	return &post, nil
 }
 
-func (s *PostService) Delete(ctx context.Context, id, userID uint) error {
+func (s *PostService) Delete(ctx context.Context, id, userID uint, isAdmin bool) error {
 	var post models.Post
 
 	if err := s.db.WithContext(ctx).First(&post, id).Error; err != nil {
@@ -126,7 +126,7 @@ func (s *PostService) Delete(ctx context.Context, id, userID uint) error {
 		return err
 	}
 
-	if post.UserID != userID {
+	if post.UserID != userID && !isAdmin {
 		return ErrForbidden
 	}
 

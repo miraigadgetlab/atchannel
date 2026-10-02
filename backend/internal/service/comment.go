@@ -72,7 +72,7 @@ func (s *CommentService) ListByPost(ctx context.Context, postID uint) ([]models.
 	return comments, nil
 }
 
-func (s *CommentService) Delete(ctx context.Context, commentID, userID uint) error {
+func (s *CommentService) Delete(ctx context.Context, commentID, userID uint, isAdmin bool) error {
 	var comment models.Comment
 
 	if err := s.db.WithContext(ctx).First(&comment, commentID).Error; err != nil {
@@ -82,7 +82,7 @@ func (s *CommentService) Delete(ctx context.Context, commentID, userID uint) err
 		return err
 	}
 
-	if comment.UserID != userID {
+	if comment.UserID != userID && !isAdmin {
 		return ErrForbidden
 	}
 

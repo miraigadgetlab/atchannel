@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -37,6 +38,16 @@ func currentUserID(c fiber.Ctx) (uint, error) {
 	}
 
 	return uint(id), nil
+}
+
+// currentIsAdmin reports whether the caller's token carries the admin role.
+func currentIsAdmin(c fiber.Ctx) bool {
+	claims, ok := c.Locals("user").(*middleware.UserClaims)
+	if !ok || claims == nil {
+		return false
+	}
+
+	return slices.Contains(claims.Roles, "admin")
 }
 
 func (h *CommentHandler) Create(c fiber.Ctx) error {
@@ -140,7 +151,7 @@ func (h *CommentHandler) Delete(c fiber.Ctx) error {
 		})
 	}
 
-	if err := h.commentService.Delete(c.Context(), uint(commentID), userID); err != nil {
+	if err := h.commentService.Delete(c.Context(), uint(commentID), userID, currentIsAdmin(c)); err != nil {
 		switch {
 		case errors.Is(err, service.ErrCommentNotFound):
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{

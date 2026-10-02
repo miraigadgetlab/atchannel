@@ -25,6 +25,9 @@ services:
       - DB_NAME=atchannel_db
       - DB_PORT=5432
       - JWT_SECRET=fhdmSFpZ5VnolumrpbPoy92pG/nS9Ftmg1EDRpSKmCc=
+      - ADMIN_NAME=admin
+      - ADMIN_EMAIL=admin@channel.io
+      - ADMIN_PASSWORD=admin1234
     depends_on:
       - postgres
 

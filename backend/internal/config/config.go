@@ -8,6 +8,12 @@ import (
 type Config struct {
 	Port      string
 	JWTSecret []byte
+
+	// Bootstrap admin account. Seeding only happens when both
+	// AdminEmail and AdminPassword are provided.
+	AdminName     string
+	AdminEmail    string
+	AdminPassword string
 }
 
 func LoadConfig() *Config {
@@ -21,8 +27,22 @@ func LoadConfig() *Config {
 		port = "3000"
 	}
 
-	return &Config{
-		Port:      ":" + port,
-		JWTSecret: []byte(secret),
+	cfg := &Config{
+		Port:          ":" + port,
+		JWTSecret:     []byte(secret),
+		AdminName:     os.Getenv("ADMIN_NAME"),
+		AdminEmail:    os.Getenv("ADMIN_EMAIL"),
+		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
 	}
+
+	if cfg.AdminName == "" {
+		cfg.AdminName = "admin"
+	}
+
+	if cfg.AdminEmail != "" && cfg.AdminPassword == "" {
+		log.Print("WARNING: ADMIN_EMAIL is set but ADMIN_PASSWORD is empty, skipping admin bootstrap")
+		cfg.AdminEmail = ""
+	}
+
+	return cfg
 }

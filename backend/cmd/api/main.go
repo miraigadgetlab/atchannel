@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"atchannel-backend/internal/config"
@@ -23,11 +24,21 @@ func main() {
 	channelService := service.NewChannelService(db.DB)
 	postService := service.NewPostService(db.DB)
 	commentService := service.NewCommentService(db.DB)
+	statsService := service.NewStatsService(db.DB)
+
+	if cfg.AdminEmail != "" && cfg.AdminPassword != "" {
+		admin, err := userService.EnsureAdmin(context.Background(), cfg.AdminName, cfg.AdminEmail, cfg.AdminPassword)
+		if err != nil {
+			log.Fatalf("admin bootstrap failed: %v", err)
+		}
+		log.Printf("admin account ready: %s <%s> roles=%v", admin.Name, admin.Email, admin.Roles)
+	}
 
 	authHandler := handler.NewAuthHandler(tokenService, userService)
 	channelHandler := handler.NewChannelHandler(channelService)
 	postHandler := handler.NewPostHandler(postService)
 	commentHandler := handler.NewCommentHandler(commentService)
+	adminHandler := handler.NewAdminHandler(userService, statsService)
 
 	app := fiber.New()
 
@@ -37,6 +48,7 @@ func main() {
 		ChannelHandler: channelHandler,
 		PostHandler:    postHandler,
 		CommentHandler: commentHandler,
+		AdminHandler:   adminHandler,
 	})
 
 	log.Printf("listening on %s", cfg.Port)

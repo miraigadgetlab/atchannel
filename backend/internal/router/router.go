@@ -15,6 +15,7 @@ type RouterDeps struct {
 	ChannelHandler *handler.ChannelHandler
 	PostHandler    *handler.PostHandler
 	CommentHandler *handler.CommentHandler
+	AdminHandler   *handler.AdminHandler
 }
 
 func SetupRoutes(app *fiber.App, deps RouterDeps) {
@@ -50,4 +51,12 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	protected.Delete("/posts/:id", deps.PostHandler.Delete)
 	protected.Post("/posts/:id/comments", deps.CommentHandler.Create)
 	protected.Delete("/comments/:commentID", deps.CommentHandler.Delete)
+
+	// Admin only (auth required first, then the admin role check)
+	admin := api.Group("", authGuard, middleware.RequireRole("admin"))
+
+	admin.Get("/admin/users", deps.AdminHandler.ListUsers)
+	admin.Get("/admin/stats", deps.AdminHandler.Stats)
+	admin.Put("/admin/users/:id/roles", deps.AdminHandler.SetRoles)
+	admin.Delete("/admin/users/:id", deps.AdminHandler.DeleteUser)
 }
