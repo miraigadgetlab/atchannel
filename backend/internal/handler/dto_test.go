@@ -24,7 +24,7 @@ func TestPostResponseHidesPrivateUserFields(t *testing.T) {
 		},
 	}
 
-	raw, err := json.Marshal(toPostResponse(post))
+	raw, err := json.Marshal(toPostResponse(post, false))
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}

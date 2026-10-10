@@ -106,10 +106,10 @@ func (s *ChannelService) Count(ctx context.Context, filter ChannelFilter) (int64
 	return count, err
 }
 
-// Update partially edits a channel. Admins may edit anything; everyone
-// else only channels they opened (CreatedBy). Channels with an unknown
-// owner (nil) are admin-only.
-func (s *ChannelService) Update(ctx context.Context, id, userID uint, isAdmin bool, in UpdateChannelInput) (*models.Channel, error) {
+// Update partially edits a channel. Moderators and admins may edit anything;
+// everyone else only channels they opened (CreatedBy). Channels with an
+// unknown owner (nil) are staff-only.
+func (s *ChannelService) Update(ctx context.Context, id, userID uint, canModerate bool, in UpdateChannelInput) (*models.Channel, error) {
 	var channel models.Channel
 
 	if err := s.db.WithContext(ctx).First(&channel, id).Error; err != nil {
@@ -120,7 +120,7 @@ func (s *ChannelService) Update(ctx context.Context, id, userID uint, isAdmin bo
 	}
 
 	ownedByCaller := channel.CreatedBy != nil && *channel.CreatedBy == userID
-	if !isAdmin && !ownedByCaller {
+	if !canModerate && !ownedByCaller {
 		return nil, ErrForbidden
 	}
 
@@ -174,10 +174,10 @@ func (s *ChannelService) CountPosts(ctx context.Context, channelID uint) (int64,
 	return count, err
 }
 
-// Delete removes a channel and everything inside it. Admins may delete any
-// channel; everyone else only channels they opened. Channels with an
-// unknown owner (nil) are admin-only, mirroring Update.
-func (s *ChannelService) Delete(ctx context.Context, id, userID uint, isAdmin bool) error {
+// Delete removes a channel and everything inside it. Moderators and admins
+// may delete any channel; everyone else only channels they opened. Channels
+// with an unknown owner (nil) are staff-only, mirroring Update.
+func (s *ChannelService) Delete(ctx context.Context, id, userID uint, canModerate bool) error {
 	var channel models.Channel
 
 	if err := s.db.WithContext(ctx).First(&channel, id).Error; err != nil {
@@ -188,11 +188,17 @@ func (s *ChannelService) Delete(ctx context.Context, id, userID uint, isAdmin bo
 	}
 
 	ownedByCaller := channel.CreatedBy != nil && *channel.CreatedBy == userID
-	if !isAdmin && !ownedByCaller {
+	if !canModerate && !ownedByCaller {
 		return ErrForbidden
 	}
 
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("DELETE FROM post_likes WHERE post_id IN (SELECT id FROM posts WHERE channel_id = ?)", id).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM notifications WHERE post_id IN (SELECT id FROM posts WHERE channel_id = ?)", id).Error; err != nil {
+			return err
+		}
 		if err := tx.Exec("DELETE FROM comments WHERE post_id IN (SELECT id FROM posts WHERE channel_id = ?)", id).Error; err != nil {
 			return err
 		}

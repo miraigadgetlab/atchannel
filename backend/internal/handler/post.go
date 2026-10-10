@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"atchannel-backend/internal/models"
 	"atchannel-backend/internal/service"
 	"atchannel-backend/internal/validation"
 
@@ -23,11 +24,12 @@ type UpdatePostRequest struct {
 }
 
 type PostHandler struct {
-	postService *service.PostService
+	postService         *service.PostService
+	notificationService *service.NotificationService
 }
 
-func NewPostHandler(ps *service.PostService) *PostHandler {
-	return &PostHandler{postService: ps}
+func NewPostHandler(ps *service.PostService, ns *service.NotificationService) *PostHandler {
+	return &PostHandler{postService: ps, notificationService: ns}
 }
 
 func (h *PostHandler) Create(c fiber.Ctx) error {
@@ -64,7 +66,7 @@ func (h *PostHandler) Create(c fiber.Ctx) error {
 		return replyInternal(c, err, "Failed to create post")
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(toPostResponse(*post))
+	return c.Status(fiber.StatusCreated).JSON(toPostResponse(*post, false))
 }
 
 func (h *PostHandler) List(c fiber.Ctx) error {
@@ -77,6 +79,24 @@ func (h *PostHandler) List(c fiber.Ctx) error {
 		}
 		id := uint(channelID)
 		filter.ChannelID = &id
+	}
+
+	if raw := c.Query("author_id"); raw != "" {
+		authorID, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil {
+			return replyBadRequest(c, "author_id must be a number")
+		}
+		id := uint(authorID)
+		filter.AuthorID = &id
+	}
+
+	switch c.Query("sort") {
+	case "", service.SortNewest:
+		filter.Sort = service.SortNewest
+	case service.SortOldest, service.SortTop:
+		filter.Sort = c.Query("sort")
+	default:
+		return replyBadRequest(c, "sort must be one of: new, old, top")
 	}
 
 	query, err := searchQuery(c)
@@ -104,11 +124,16 @@ func (h *PostHandler) List(c fiber.Ctx) error {
 		return replyInternal(c, err, "Failed to count posts")
 	}
 
+	liked, err := h.likedSet(c, posts)
+	if err != nil {
+		return replyInternal(c, err, "Failed to load reactions")
+	}
+
 	return c.JSON(fiber.Map{
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,
-		"items":  toPostResponses(posts),
+		"items":  toPostResponses(posts, liked),
 	})
 }
 
@@ -123,7 +148,16 @@ func (h *PostHandler) GetByID(c fiber.Ctx) error {
 		return svcErr(c, err, "Failed to fetch post")
 	}
 
-	return c.JSON(toPostResponse(*post))
+	liked := false
+	if viewerID, ok := optionalUserID(c); ok {
+		set, err := h.postService.LikedSet(c.Context(), viewerID, []uint{post.ID})
+		if err != nil {
+			return replyInternal(c, err, "Failed to load reactions")
+		}
+		liked = set[post.ID]
+	}
+
+	return c.JSON(toPostResponse(*post, liked))
 }
 
 func (h *PostHandler) Update(c fiber.Ctx) error {
@@ -169,7 +203,7 @@ func (h *PostHandler) Update(c fiber.Ctx) error {
 		req.Content = &trimmed
 	}
 
-	post, err := h.postService.Update(c.Context(), uint(id), userID, currentIsAdmin(c), service.UpdatePostInput{
+	post, err := h.postService.Update(c.Context(), uint(id), userID, currentCanModerate(c), service.UpdatePostInput{
 		Title:   req.Title,
 		Content: req.Content,
 	})
@@ -177,7 +211,7 @@ func (h *PostHandler) Update(c fiber.Ctx) error {
 		return postErrorResponse(c, err, "Failed to update post")
 	}
 
-	return c.JSON(toPostResponse(*post))
+	return c.JSON(toPostResponse(*post, false))
 }
 
 func (h *PostHandler) Delete(c fiber.Ctx) error {
@@ -191,7 +225,7 @@ func (h *PostHandler) Delete(c fiber.Ctx) error {
 		return replyBadRequest(c, "Post id must be a number")
 	}
 
-	if err := h.postService.Delete(c.Context(), uint(id), userID, currentIsAdmin(c)); err != nil {
+	if err := h.postService.Delete(c.Context(), uint(id), userID, currentCanModerate(c)); err != nil {
 		return postErrorResponse(c, err, "Failed to delete post")
 	}
 
@@ -205,4 +239,126 @@ func postErrorResponse(c fiber.Ctx, err error, internalMessage string) error {
 		return replyErr(c, fiber.StatusForbidden, "You can only modify your own posts")
 	}
 	return svcErr(c, err, internalMessage)
+}
+
+// likedSet maps which listed posts the caller has liked; anonymous requests
+// get an empty set.
+func (h *PostHandler) likedSet(c fiber.Ctx, posts []models.Post) (map[uint]bool, error) {
+	viewerID, ok := optionalUserID(c)
+	if !ok {
+		return map[uint]bool{}, nil
+	}
+
+	ids := make([]uint, len(posts))
+	for i, p := range posts {
+		ids[i] = p.ID
+	}
+
+	return h.postService.LikedSet(c.Context(), viewerID, ids)
+}
+
+// Like adds the caller's like to a post (idempotent) and notifies the author
+// only the first time.
+func (h *PostHandler) Like(c fiber.Ctx) error {
+	userID, err := currentUserID(c)
+	if err != nil {
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
+	}
+
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return replyBadRequest(c, "Post id must be a number")
+	}
+
+	created, authorID, err := h.postService.Like(c.Context(), uint(id), userID)
+	if err != nil {
+		if errors.Is(err, service.ErrPostNotFound) {
+			return replyErr(c, fiber.StatusNotFound, "Post does not exist")
+		}
+		return replyInternal(c, err, "Failed to like post")
+	}
+
+	if created {
+		postID := uint(id)
+		if err := h.notificationService.Notify(c.Context(), authorID, userID, service.NotificationLike, &postID, nil); err != nil {
+			return replyInternal(c, err, "Failed to record notification")
+		}
+	}
+
+	return c.JSON(fiber.Map{"liked": true})
+}
+
+// Unlike removes the caller's like. Idempotent.
+func (h *PostHandler) Unlike(c fiber.Ctx) error {
+	userID, err := currentUserID(c)
+	if err != nil {
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
+	}
+
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return replyBadRequest(c, "Post id must be a number")
+	}
+
+	if err := h.postService.Unlike(c.Context(), uint(id), userID); err != nil {
+		return replyInternal(c, err, "Failed to remove like")
+	}
+
+	return c.JSON(fiber.Map{"liked": false})
+}
+
+// Pin lifts a post above the feed. Idempotent.
+func (h *PostHandler) Pin(c fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return replyBadRequest(c, "Post id must be a number")
+	}
+
+	if err := h.postService.Pin(c.Context(), uint(id), true); err != nil {
+		return svcErr(c, err, "Failed to pin post")
+	}
+
+	return c.JSON(fiber.Map{"pinned": true})
+}
+
+// Unpin returns a post to the normal feed order. Idempotent.
+func (h *PostHandler) Unpin(c fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return replyBadRequest(c, "Post id must be a number")
+	}
+
+	if err := h.postService.Pin(c.Context(), uint(id), false); err != nil {
+		return svcErr(c, err, "Failed to unpin post")
+	}
+
+	return c.JSON(fiber.Map{"pinned": false})
+}
+
+// Lock freezes a thread: only its author and moderators may keep commenting.
+func (h *PostHandler) Lock(c fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return replyBadRequest(c, "Post id must be a number")
+	}
+
+	if err := h.postService.Lock(c.Context(), uint(id), true); err != nil {
+		return svcErr(c, err, "Failed to lock post")
+	}
+
+	return c.JSON(fiber.Map{"locked": true})
+}
+
+// Unlock reopens a locked thread. Idempotent.
+func (h *PostHandler) Unlock(c fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return replyBadRequest(c, "Post id must be a number")
+	}
+
+	if err := h.postService.Lock(c.Context(), uint(id), false); err != nil {
+		return svcErr(c, err, "Failed to unlock post")
+	}
+
+	return c.JSON(fiber.Map{"locked": false})
 }

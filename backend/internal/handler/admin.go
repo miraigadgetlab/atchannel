@@ -13,6 +13,10 @@ type SetRolesRequest struct {
 	Roles []string `json:"roles"`
 }
 
+type SetBannedRequest struct {
+	Banned bool `json:"banned"`
+}
+
 type AdminHandler struct {
 	userService    *service.UserService
 	statsService   *service.StatsService
@@ -91,6 +95,47 @@ func (h *AdminHandler) SetRoles(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"user": user, "sessions_revoked": revoked})
+}
+
+func (h *AdminHandler) SetBanned(c fiber.Ctx) error {
+	targetID, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return replyBadRequest(c, "User id must be a number")
+	}
+
+	var req SetBannedRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return replyBadRequest(c, "Invalid request payload format")
+	}
+
+	callerID, err := currentUserID(c)
+	if err != nil {
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
+	}
+
+	if uint(targetID) == callerID {
+		return replyBadRequest(c, "You cannot ban your own account")
+	}
+
+	if err := h.userService.SetBanned(c.Context(), uint(targetID), req.Banned); err != nil {
+		return svcErr(c, err, "Failed to update account status")
+	}
+
+	// Banning should kick the user out now, not when their access token
+	// expires. Unbanning keeps an eye on tone without forcing a new login.
+	revoked := int64(0)
+	if req.Banned {
+		revoked, err = h.sessionService.RevokeAllForUser(c.Context(), uint(targetID), "account-banned")
+		if err != nil {
+			return replyInternal(c, err, "Account status changed but sessions could not be revoked")
+		}
+	}
+
+	message := "unbanned"
+	if req.Banned {
+		message = "banned"
+	}
+	return c.JSON(fiber.Map{"user_id": targetID, "status": message, "sessions_revoked": revoked})
 }
 
 func (h *AdminHandler) DeleteUser(c fiber.Ctx) error {

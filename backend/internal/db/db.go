@@ -122,6 +122,9 @@ func Migrate() {
 		&models.Post{},
 		&models.Comment{},
 		&models.RefreshToken{},
+		&models.EmailToken{},
+		&models.PostLike{},
+		&models.Notification{},
 	)
 
 	if err != nil {

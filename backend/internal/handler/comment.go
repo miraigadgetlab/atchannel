@@ -51,8 +51,14 @@ func (h *CommentHandler) Create(c fiber.Ctx) error {
 		return replyBadRequest(c, "Comment must be at most 5000 characters long")
 	}
 
-	comment, err := h.commentService.Create(c.Context(), userID, uint(postID), req.Content)
+	comment, err := h.commentService.Create(c.Context(), userID, uint(postID), req.Content, currentCanModerate(c))
 	if err != nil {
+		if errors.Is(err, service.ErrPostNotFound) {
+			return replyErr(c, fiber.StatusNotFound, "Post does not exist")
+		}
+		if errors.Is(err, service.ErrPostLocked) {
+			return replyErr(c, fiber.StatusLocked, "This thread is locked and no longer accepts comments")
+		}
 		return svcErr(c, err, "Failed to create comment")
 	}
 
@@ -94,7 +100,7 @@ func (h *CommentHandler) Delete(c fiber.Ctx) error {
 		return replyBadRequest(c, "Comment id must be a number")
 	}
 
-	if err := h.commentService.Delete(c.Context(), uint(commentID), userID, currentIsAdmin(c)); err != nil {
+	if err := h.commentService.Delete(c.Context(), uint(commentID), userID, currentCanModerate(c)); err != nil {
 		if errors.Is(err, service.ErrForbidden) {
 			return replyErr(c, fiber.StatusForbidden, "You can only delete your own comments")
 		}

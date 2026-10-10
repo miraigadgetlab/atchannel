@@ -28,12 +28,29 @@ func currentUserID(c fiber.Ctx) (uint, error) {
 	return uint(id), nil
 }
 
-// currentIsAdmin reports whether the caller's token carries the admin role.
-func currentIsAdmin(c fiber.Ctx) bool {
+// currentCanModerate reports whether the caller may act on content they do not
+// own. Admins and moderators both can.
+func currentCanModerate(c fiber.Ctx) bool {
 	claims, ok := c.Locals("user").(*middleware.UserClaims)
 	if !ok || claims == nil {
 		return false
 	}
 
-	return slices.Contains(claims.Roles, "admin")
+	return slices.Contains(claims.Roles, "admin") || slices.Contains(claims.Roles, "moderator")
+}
+
+// optionalUserID returns the caller's id when a valid token was supplied, and
+// ok=false for an anonymous request on a public route.
+func optionalUserID(c fiber.Ctx) (uint, bool) {
+	claims, ok := c.Locals("user").(*middleware.UserClaims)
+	if !ok || claims == nil {
+		return 0, false
+	}
+
+	id, err := strconv.ParseUint(claims.UserID, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+
+	return uint(id), true
 }

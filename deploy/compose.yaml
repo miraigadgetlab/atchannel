@@ -51,6 +51,18 @@ services:
       # content creation (posts/comments/channels) per user per window
       - WRITE_LIMIT_MAX=${WRITE_LIMIT_MAX:-30}
       - WRITE_LIMIT_WINDOW=${WRITE_LIMIT_WINDOW:-1m}
+      # transactional email; empty SMTP_HOST logs emails instead of sending
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - MAIL_FROM=${MAIL_FROM:-no-reply@atchannel.local}
+      - APP_BASE_URL=${APP_BASE_URL:-http://localhost:5173}
+      - VERIFY_TOKEN_TTL=${VERIFY_TOKEN_TTL:-24h}
+      - RESET_TOKEN_TTL=${RESET_TOKEN_TTL:-1h}
+      # avatar uploads: persisted on a named volume so they survive restarts
+      - UPLOAD_DIR=${UPLOAD_DIR:-/app/uploads}
+      - MAX_AVATAR_BYTES=${MAX_AVATAR_BYTES:-1048576}
     # Healthcheck is what makes `depends_on: condition: service_healthy` work:
     # the backend only starts once postgres really accepts connections.
     depends_on:
@@ -62,6 +74,9 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
+    volumes:
+      - uploads_data:/app/uploads
 
 volumes:
   postgres_data:
+  uploads_data:

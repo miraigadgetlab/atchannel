@@ -14,6 +14,7 @@ import (
 	"atchannel-backend/internal/config"
 	"atchannel-backend/internal/db"
 	"atchannel-backend/internal/handler"
+	"atchannel-backend/internal/mailer"
 	"atchannel-backend/internal/middleware"
 	"atchannel-backend/internal/router"
 	"atchannel-backend/internal/service"
@@ -28,13 +29,27 @@ func main() {
 	defer db.Close()
 	db.Migrate()
 
+	// Avatar uploads go to local disk; make sure it exists before the first
+	// upload (and before the static middleware starts serving it).
+	if cfg.UploadDir != "" {
+		if err := os.MkdirAll(cfg.UploadDir, 0o755); err != nil {
+			log.Fatalf("could not create upload dir %q: %v", cfg.UploadDir, err)
+		}
+	}
+
 	tokenService := service.NewTokenService(cfg.JWTSecret, cfg.JWTIssuer)
 	userService := service.NewUserService(db.DB)
 	channelService := service.NewChannelService(db.DB)
 	postService := service.NewPostService(db.DB)
-	commentService := service.NewCommentService(db.DB)
+	notificationService := service.NewNotificationService(db.DB)
+	commentService := service.NewCommentService(db.DB, notificationService)
 	statsService := service.NewStatsService(db.DB)
 	sessionService := service.NewSessionService(db.DB)
+
+	// Transactional email: SMTP when configured, otherwise log-only so the
+	// verification and reset flows work in development.
+	accountMailer := mailer.New(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.MailFrom)
+	accountService := service.NewAccountService(db.DB, userService, sessionService, accountMailer, cfg.AppBaseURL, cfg.VerifyTokenTTL, cfg.ResetTokenTTL)
 
 	// Dead refresh tokens are pruned on a schedule: Record only clears the
 	// rows of users who log in again, so abandoned accounts would otherwise
@@ -50,17 +65,20 @@ func main() {
 	}
 
 	accountLimiter := middleware.NewAccountLimiter(cfg.AccountLockMax, cfg.AccountLockWindow)
-	authHandler := handler.NewAuthHandler(tokenService, userService, sessionService, accountLimiter)
+	authHandler := handler.NewAuthHandler(tokenService, userService, sessionService, accountService, accountLimiter)
 	channelHandler := handler.NewChannelHandler(channelService, postService)
-	postHandler := handler.NewPostHandler(postService)
+	postHandler := handler.NewPostHandler(postService, notificationService)
 	commentHandler := handler.NewCommentHandler(commentService)
 	adminHandler := handler.NewAdminHandler(userService, statsService, sessionService)
-	profileHandler := handler.NewProfileHandler(userService, sessionService)
+	profileHandler := handler.NewProfileHandler(userService, sessionService, cfg.UploadDir, cfg.MaxAvatarBytes)
+	accountHandler := handler.NewAccountHandler(accountService)
+	notificationHandler := handler.NewNotificationHandler(notificationService)
 
 	fiberCfg := fiber.Config{
 		// A single abusive client must not be able to pin memory with a
-		// giant body. 1MB comfortably fits the longest allowed post.
-		BodyLimit: 1 << 20,
+		// giant body. 3MB leaves room for the multipart envelope around an
+		// at-most-1MB avatar while still capping abusive uploads.
+		BodyLimit: 3 << 20,
 		// Keep every error in the same {"error","message"} envelope the
 		// handlers use. Fiber errors (405, body limit, ...) keep their
 		// status; anything else is a logged 500 with no internal detail.
@@ -73,7 +91,11 @@ func main() {
 				code = fe.Code
 				message = fe.Message
 			} else {
-				log.Printf("unhandled request error (%s %s): %v", c.Method(), c.Path(), err)
+				if id, ok := c.Locals(middleware.RequestIDKey).(string); ok && id != "" {
+					log.Printf("unhandled request error (%s %s) id=%s: %v", c.Method(), c.Path(), id, err)
+				} else {
+					log.Printf("unhandled request error (%s %s): %v", c.Method(), c.Path(), err)
+				}
 			}
 
 			return c.Status(code).JSON(fiber.Map{
@@ -96,13 +118,15 @@ func main() {
 	app := fiber.New(fiberCfg)
 
 	router.SetupRoutes(app, router.RouterDeps{
-		Config:         cfg,
-		AuthHandler:    authHandler,
-		ChannelHandler: channelHandler,
-		PostHandler:    postHandler,
-		CommentHandler: commentHandler,
-		AdminHandler:   adminHandler,
-		ProfileHandler: profileHandler,
+		Config:              cfg,
+		AuthHandler:         authHandler,
+		ChannelHandler:      channelHandler,
+		PostHandler:         postHandler,
+		CommentHandler:      commentHandler,
+		AdminHandler:        adminHandler,
+		ProfileHandler:      profileHandler,
+		AccountHandler:      accountHandler,
+		NotificationHandler: notificationHandler,
 	})
 
 	// Graceful shutdown: SIGTERM/SIGINT lets in-flight requests finish

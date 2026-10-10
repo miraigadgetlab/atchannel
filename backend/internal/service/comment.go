@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log"
 
 	"atchannel-backend/internal/models"
 
@@ -15,21 +16,28 @@ var (
 )
 
 type CommentService struct {
-	db *gorm.DB
+	db            *gorm.DB
+	notifications *NotificationService
 }
 
-func NewCommentService(db *gorm.DB) *CommentService {
-	return &CommentService{db: db}
+func NewCommentService(db *gorm.DB, notifications *NotificationService) *CommentService {
+	return &CommentService{db: db, notifications: notifications}
 }
 
-func (s *CommentService) Create(ctx context.Context, userID, postID uint, content string) (*models.Comment, error) {
-	var count int64
-
-	if err := s.db.WithContext(ctx).Model(&models.Post{}).Where("id = ?", postID).Count(&count).Error; err != nil {
+// Create adds a comment to a post. Comments on a locked thread are rejected
+// unless the caller is the post's author (their own thread stays their own) or
+// a moderator.
+func (s *CommentService) Create(ctx context.Context, userID, postID uint, content string, canModerate bool) (*models.Comment, error) {
+	var post models.Post
+	if err := s.db.WithContext(ctx).Select("id", "user_id", "locked_at").First(&post, postID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrPostNotFound
+		}
 		return nil, err
 	}
-	if count == 0 {
-		return nil, ErrPostNotFound
+
+	if post.LockedAt != nil && post.UserID != userID && !canModerate {
+		return nil, ErrPostLocked
 	}
 
 	comment := models.Comment{
@@ -44,6 +52,12 @@ func (s *CommentService) Create(ctx context.Context, userID, postID uint, conten
 
 	if err := s.db.WithContext(ctx).Preload("User").First(&comment, comment.ID).Error; err != nil {
 		return nil, err
+	}
+
+	// Best effort: a notification is a courtesy, never a reason to fail the
+	// comment that was already written.
+	if err := s.notifications.Notify(ctx, post.UserID, userID, NotificationComment, &postID, &comment.ID); err != nil {
+		log.Printf("could not notify post %d author of comment %d: %v", postID, comment.ID, err)
 	}
 
 	return &comment, nil
@@ -85,7 +99,7 @@ func (s *CommentService) ListByPost(ctx context.Context, postID uint, limit, off
 	return comments, total, nil
 }
 
-func (s *CommentService) Delete(ctx context.Context, commentID, userID uint, isAdmin bool) error {
+func (s *CommentService) Delete(ctx context.Context, commentID, userID uint, canModerate bool) error {
 	var comment models.Comment
 
 	if err := s.db.WithContext(ctx).First(&comment, commentID).Error; err != nil {
@@ -95,7 +109,7 @@ func (s *CommentService) Delete(ctx context.Context, commentID, userID uint, isA
 		return err
 	}
 
-	if comment.UserID != userID && !isAdmin {
+	if comment.UserID != userID && !canModerate {
 		return ErrForbidden
 	}
 

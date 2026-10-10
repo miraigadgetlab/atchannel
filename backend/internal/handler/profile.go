@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"atchannel-backend/internal/service"
@@ -32,10 +33,12 @@ type ChangePasswordRequest struct {
 type ProfileHandler struct {
 	userService    *service.UserService
 	sessionService *service.SessionService
+	uploadDir      string
+	maxAvatarBytes int64
 }
 
-func NewProfileHandler(us *service.UserService, ss *service.SessionService) *ProfileHandler {
-	return &ProfileHandler{userService: us, sessionService: ss}
+func NewProfileHandler(us *service.UserService, ss *service.SessionService, uploadDir string, maxAvatarBytes int64) *ProfileHandler {
+	return &ProfileHandler{userService: us, sessionService: ss, uploadDir: uploadDir, maxAvatarBytes: maxAvatarBytes}
 }
 
 // Me returns the caller's own account record (password is never serialized).
@@ -54,6 +57,30 @@ func (h *ProfileHandler) Me(c fiber.Ctx) error {
 	}
 
 	return c.JSON(user)
+}
+
+// GetByID returns another account's public profile. It is unauthenticated and
+// exposes only the safe author fields plus activity counts.
+func (h *ProfileHandler) GetByID(c fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return replyBadRequest(c, "User id must be a number")
+	}
+
+	user, posts, comments, err := h.userService.GetPublicProfile(c.Context(), uint(id))
+	if err != nil {
+		return svcErr(c, err, "Failed to fetch user")
+	}
+
+	return c.JSON(PublicProfile{
+		ID:           user.ID,
+		Name:         user.Name,
+		AboutMe:      user.AboutMe,
+		AvatarURL:    user.AvatarUrl,
+		CreatedAt:    user.CreatedAt,
+		PostCount:    posts,
+		CommentCount: comments,
+	})
 }
 
 func (h *ProfileHandler) Update(c fiber.Ctx) error {

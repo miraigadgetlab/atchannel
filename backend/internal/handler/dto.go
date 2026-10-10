@@ -27,6 +27,18 @@ type CommentResponse struct {
 	User      PublicUser `json:"user"`
 }
 
+// PublicProfile is the account view shown on someone else's profile page: the
+// safe author fields plus activity counts, and nothing private.
+type PublicProfile struct {
+	ID           uint      `json:"id"`
+	Name         string    `json:"name"`
+	AboutMe      string    `json:"about_me"`
+	AvatarURL    string    `json:"avatar_url,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	PostCount    int64     `json:"post_count"`
+	CommentCount int64     `json:"comment_count"`
+}
+
 type PostResponse struct {
 	ID        uint       `json:"id"`
 	ChannelID uint       `json:"channel_id"`
@@ -36,6 +48,10 @@ type PostResponse struct {
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	User      PublicUser `json:"user"`
+	Likes     int64      `json:"likes"`
+	LikedByMe bool       `json:"liked_by_me"`
+	Pinned    bool       `json:"pinned"`
+	Locked    bool       `json:"locked"`
 	// Comments is only populated by endpoints that actually load them; it is
 	// omitted otherwise. The dedicated /posts/:id/comments endpoint is the
 	// paginated source of truth.
@@ -71,7 +87,40 @@ func toCommentResponses(comments []models.Comment) []CommentResponse {
 	return out
 }
 
-func toPostResponse(p models.Post) PostResponse {
+// NotificationResponse is a single activity-feed entry.
+type NotificationResponse struct {
+	ID        uint       `json:"id"`
+	Type      string     `json:"type"`
+	PostID    *uint      `json:"post_id,omitempty"`
+	CommentID *uint      `json:"comment_id,omitempty"`
+	ReadAt    *time.Time `json:"read_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	Actor     PublicUser `json:"actor"`
+}
+
+func toNotificationResponse(n models.Notification) NotificationResponse {
+	return NotificationResponse{
+		ID:        n.ID,
+		Type:      n.Type,
+		PostID:    n.PostID,
+		CommentID: n.CommentID,
+		ReadAt:    n.ReadAt,
+		CreatedAt: n.CreatedAt,
+		Actor:     toPublicUser(n.Actor),
+	}
+}
+
+func toNotificationResponses(items []models.Notification) []NotificationResponse {
+	out := make([]NotificationResponse, len(items))
+	for i, n := range items {
+		out[i] = toNotificationResponse(n)
+	}
+	return out
+}
+
+// toPostResponse builds the public view. likedByMe is whether the requesting
+// account (when there is one) has liked the post.
+func toPostResponse(p models.Post, likedByMe bool) PostResponse {
 	resp := PostResponse{
 		ID:        p.ID,
 		ChannelID: p.ChannelID,
@@ -81,6 +130,10 @@ func toPostResponse(p models.Post) PostResponse {
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 		User:      toPublicUser(p.User),
+		Likes:     p.LikeCount,
+		LikedByMe: likedByMe,
+		Pinned:    p.PinnedAt != nil,
+		Locked:    p.LockedAt != nil,
 	}
 	if len(p.Comments) > 0 {
 		resp.Comments = toCommentResponses(p.Comments)
@@ -88,10 +141,10 @@ func toPostResponse(p models.Post) PostResponse {
 	return resp
 }
 
-func toPostResponses(posts []models.Post) []PostResponse {
+func toPostResponses(posts []models.Post, likedByMe map[uint]bool) []PostResponse {
 	out := make([]PostResponse, len(posts))
 	for i, p := range posts {
-		out[i] = toPostResponse(p)
+		out[i] = toPostResponse(p, likedByMe[p.ID])
 	}
 	return out
 }

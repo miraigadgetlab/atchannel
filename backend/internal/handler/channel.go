@@ -156,7 +156,7 @@ func (h *ChannelHandler) GetByID(c fiber.Ctx) error {
 		CreatedBy:   channel.CreatedBy,
 		CreatedAt:   channel.CreatedAt,
 		PostCount:   postCount,
-		Posts:       toPostResponses(posts),
+		Posts:       toPostResponses(posts, map[uint]bool{}),
 	})
 }
 
@@ -206,7 +206,7 @@ func (h *ChannelHandler) Update(c fiber.Ctx) error {
 		}
 	}
 
-	channel, err := h.channelService.Update(c.Context(), uint(id), userID, currentIsAdmin(c), service.UpdateChannelInput{
+	channel, err := h.channelService.Update(c.Context(), uint(id), userID, currentCanModerate(c), service.UpdateChannelInput{
 		Name:        req.Name,
 		Title:       req.Title,
 		Description: req.Description,
@@ -230,7 +230,7 @@ func (h *ChannelHandler) Delete(c fiber.Ctx) error {
 		return replyBadRequest(c, "Channel id must be a number")
 	}
 
-	if err := h.channelService.Delete(c.Context(), uint(id), userID, currentIsAdmin(c)); err != nil {
+	if err := h.channelService.Delete(c.Context(), uint(id), userID, currentCanModerate(c)); err != nil {
 		return channelErrorResponse(c, err, "Failed to delete channel", "delete")
 	}
 
@@ -242,7 +242,7 @@ func (h *ChannelHandler) Delete(c fiber.Ctx) error {
 // wording, which names the action the caller was attempting.
 func channelErrorResponse(c fiber.Ctx, err error, internalMessage, action string) error {
 	if errors.Is(err, service.ErrForbidden) {
-		return replyErr(c, fiber.StatusForbidden, "Only the channel creator or an admin can "+action+" this channel")
+		return replyErr(c, fiber.StatusForbidden, "Only the channel creator, a moderator or an admin can "+action+" this channel")
 	}
 	return svcErr(c, err, internalMessage)
 }

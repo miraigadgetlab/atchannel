@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"atchannel-backend/internal/models"
 
@@ -18,6 +19,7 @@ var (
 	ErrNameTaken          = errors.New("name is already taken")
 	ErrUserNotFound       = errors.New("user not found")
 	ErrCurrentPassword    = errors.New("current password is incorrect")
+	ErrAccountBanned      = errors.New("account is banned")
 )
 
 // UpdateProfileInput carries only the fields the client wants to change;
@@ -29,9 +31,10 @@ type UpdateProfileInput struct {
 	AvatarURL *string
 }
 
-// AllowedRoles is the closed set of roles a channeler can hold.
-// There is deliberately no moderator tier.
-var AllowedRoles = []string{"user", "admin"}
+// AllowedRoles is the closed set of roles a channeler can hold. "moderator"
+// sits between user and admin: it can edit/delete any content, but cannot
+// manage accounts, roles or see stats.
+var AllowedRoles = []string{"user", "moderator", "admin"}
 
 type UserService struct {
 	db *gorm.DB
@@ -116,7 +119,34 @@ func (s *UserService) Authenticate(ctx context.Context, email, password string) 
 		return nil, ErrInvalidCredentials
 	}
 
+	// A banned account must not get in with the (possibly leaked) correct
+	// password either.
+	if user.BannedAt != nil {
+		return nil, ErrAccountBanned
+	}
+
 	return &user, nil
+}
+
+// SetBanned suspends or reinstates an account. Banning keeps the data (posts,
+// comments) for the audit trail and sets BannedAt so every fresh login and new
+// token is refused.
+func (s *UserService) SetBanned(ctx context.Context, userID uint, banned bool) error {
+	var user models.User
+	if err := s.db.WithContext(ctx).First(&user, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrUserNotFound
+		}
+		return err
+	}
+
+	var value any
+	if banned {
+		value = time.Now()
+	} else {
+		value = nil
+	}
+	return s.db.WithContext(ctx).Model(&user).Update("banned_at", value).Error
 }
 
 // ValidRoles reports whether roles is non-empty and only contains allowed values.
@@ -170,6 +200,39 @@ func (s *UserService) GetByID(ctx context.Context, userID uint) (*models.User, e
 	}
 
 	return &user, nil
+}
+
+// GetByEmail looks up an account by its (already normalized) email address.
+func (s *UserService) GetByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+
+	if err := s.db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// GetPublicProfile returns an account together with how much it has posted and
+// commented, for the public profile page.
+func (s *UserService) GetPublicProfile(ctx context.Context, userID uint) (*models.User, int64, int64, error) {
+	user, err := s.GetByID(ctx, userID)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+
+	var posts, comments int64
+	if err := s.db.WithContext(ctx).Model(&models.Post{}).Where("user_id = ?", userID).Count(&posts).Error; err != nil {
+		return nil, 0, 0, err
+	}
+	if err := s.db.WithContext(ctx).Model(&models.Comment{}).Where("user_id = ?", userID).Count(&comments).Error; err != nil {
+		return nil, 0, 0, err
+	}
+
+	return user, posts, comments, nil
 }
 
 // UpdateProfile applies only the provided fields; nil fields stay untouched.
@@ -231,6 +294,21 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID uint, currentPas
 	return user, nil
 }
 
+// UpdateAvatar stores the served path of a freshly uploaded avatar.
+func (s *UserService) UpdateAvatar(ctx context.Context, userID uint, avatarURL string) (*models.User, error) {
+	user, err := s.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.db.WithContext(ctx).Model(user).Update("avatar_url", avatarURL).Error; err != nil {
+		return nil, err
+	}
+	user.AvatarUrl = avatarURL
+
+	return user, nil
+}
+
 // ChangePassword verifies the current password before storing the new hash.
 func (s *UserService) ChangePassword(ctx context.Context, userID uint, currentPassword, newPassword string) error {
 	user, err := s.GetByID(ctx, userID)
@@ -285,6 +363,20 @@ func (s *UserService) Delete(ctx context.Context, userID uint) error {
 
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("DELETE FROM refresh_tokens WHERE user_id = ?", userID).Error; err != nil {
+			return err
+		}
+		// notifications.actor_id references users(id), so these have to go
+		// before the account row itself.
+		if err := tx.Exec("DELETE FROM notifications WHERE user_id = ? OR actor_id = ?", userID, userID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM post_likes WHERE user_id = ?", userID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM post_likes WHERE post_id IN (SELECT id FROM posts WHERE user_id = ?)", userID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM post_likes WHERE post_id IN (SELECT id FROM posts WHERE channel_id IN (SELECT id FROM channels WHERE created_by = ?))", userID).Error; err != nil {
 			return err
 		}
 		if err := tx.Exec("DELETE FROM comments WHERE post_id IN (SELECT id FROM posts WHERE user_id = ?)", userID).Error; err != nil {

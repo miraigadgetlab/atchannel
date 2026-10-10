@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -28,14 +29,16 @@ type AuthHandler struct {
 	tokenService   *service.TokenService
 	userService    *service.UserService
 	sessionService *service.SessionService
+	accountService *service.AccountService
 	accountLimiter *middleware.AccountLimiter
 }
 
-func NewAuthHandler(ts *service.TokenService, us *service.UserService, ss *service.SessionService, al *middleware.AccountLimiter) *AuthHandler {
+func NewAuthHandler(ts *service.TokenService, us *service.UserService, ss *service.SessionService, as *service.AccountService, al *middleware.AccountLimiter) *AuthHandler {
 	return &AuthHandler{
 		tokenService:   ts,
 		userService:    us,
 		sessionService: ss,
+		accountService: as,
 		accountLimiter: al,
 	}
 }
@@ -69,6 +72,12 @@ func (h *AuthHandler) Register(c fiber.Ctx) error {
 		return svcErr(c, err, "Failed to create account")
 	}
 
+	// Fire off the confirmation email. A failure here must not fail signup:
+	// the account is usable and the user can request another link.
+	if err := h.accountService.SendVerification(c.Context(), user); err != nil {
+		log.Printf("could not send verification email for user %d: %v", user.ID, err)
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(user)
 }
 
@@ -98,6 +107,9 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	user, err := h.userService.Authenticate(c.Context(), req.Email, req.Password)
 	if err != nil {
 		h.accountLimiter.Fail(req.Email)
+		if errors.Is(err, service.ErrAccountBanned) {
+			return replyErr(c, fiber.StatusForbidden, "This account has been suspended")
+		}
 		return replyErr(c, fiber.StatusUnauthorized, "Invalid email or password")
 	}
 

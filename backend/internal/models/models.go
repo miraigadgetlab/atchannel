@@ -10,8 +10,28 @@ type User struct {
 	Roles     StringArray `gorm:"type:text[];not null;default:'{}'" json:"roles"`
 	AboutMe   string      `json:"about_me"`
 	AvatarUrl string      `json:"avatar_url,omitempty"`
-	CreatedAt time.Time   `json:"created_at"`
-	UpdatedAt time.Time   `gorm:"not null" json:"updated_at"`
+	// EmailVerifiedAt is nil until the address is confirmed. It is advisory:
+	// nothing is gated on it yet, but clients use it to nudge the user.
+	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `gorm:"not null" json:"updated_at"`
+	// BannedAt is set when an admin suspends the account. Banned users cannot
+	// log in; existing sessions are revoked at ban time.
+	BannedAt *time.Time `json:"banned_at,omitempty"`
+}
+
+// EmailToken is a single-use, hashed token for email verification or password
+// reset. Only the SHA-256 is stored, so a database leak cannot be replayed as
+// a verification or reset. Kind separates the two flows so a reset link can
+// never be replayed as a verification, or vice versa.
+type EmailToken struct {
+	ID        uint       `gorm:"primaryKey" json:"-"`
+	UserID    uint       `gorm:"not null;index" json:"-"`
+	TokenHash string     `gorm:"not null;uniqueIndex" json:"-"`
+	Kind      string     `gorm:"not null;index" json:"-"`
+	ExpiresAt time.Time  `gorm:"not null;index" json:"-"`
+	UsedAt    *time.Time `json:"-"`
+	CreatedAt time.Time  `json:"-"`
 }
 
 type Channel struct {
@@ -38,6 +58,36 @@ type Post struct {
 	UpdatedAt time.Time `gorm:"not null" json:"updated_at"`
 	User      User      `gorm:"foreignKey:UserID" json:"user"`
 	Comments  []Comment `json:"comments,omitempty"`
+	// LikeCount is not a column: it is filled from a subquery when listing.
+	LikeCount int64 `gorm:"-" json:"like_count"`
+	// PinnedAt is set by a moderator/creator to lift a post above the feed.
+	PinnedAt *time.Time `json:"pinned_at,omitempty"`
+	// LockedAt is set by a moderator to freeze a thread: nobody but the
+	// author (and moderators) may add comments.
+	LockedAt *time.Time `json:"locked_at,omitempty"`
+}
+
+// PostLike is one user's like on one post. The composite unique index makes a
+// repeat like a no-op instead of a duplicate row.
+type PostLike struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	PostID    uint      `gorm:"not null;uniqueIndex:idx_post_likes_user_post,priority:1" json:"post_id"`
+	UserID    uint      `gorm:"not null;uniqueIndex:idx_post_likes_user_post,priority:2" json:"user_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// Notification is something that happened to the recipient's content. Type is
+// "comment" or "like"; Actor is who caused it.
+type Notification struct {
+	ID        uint       `gorm:"primaryKey" json:"id"`
+	UserID    uint       `gorm:"not null;index" json:"user_id"`
+	ActorID   uint       `gorm:"not null" json:"actor_id"`
+	Type      string     `gorm:"not null" json:"type"`
+	PostID    *uint      `gorm:"index" json:"post_id,omitempty"`
+	CommentID *uint      `json:"comment_id,omitempty"`
+	ReadAt    *time.Time `json:"read_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	Actor     User       `gorm:"foreignKey:ActorID" json:"actor"`
 }
 
 type Comment struct {
