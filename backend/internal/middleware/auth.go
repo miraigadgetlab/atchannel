@@ -20,6 +20,7 @@ type AuthConfig struct {
 	SecretKey     []byte
 	PublicKey     any
 	SigningMethod jwt.SigningMethod
+	Issuer        string
 	ContextKey    string
 }
 
@@ -50,6 +51,13 @@ func NewAuthMiddleware(cfg AuthConfig) fiber.Handler {
 
 		tokenString := parts[1]
 
+		parserOptions := []jwt.ParserOption{
+			jwt.WithValidMethods([]string{cfg.SigningMethod.Alg()}),
+		}
+		if cfg.Issuer != "" {
+			parserOptions = append(parserOptions, jwt.WithIssuer(cfg.Issuer))
+		}
+
 		token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (any, error) {
 			if token.Method.Alg() != cfg.SigningMethod.Alg() {
 				return nil, errors.New("unexpected signing method")
@@ -58,7 +66,7 @@ func NewAuthMiddleware(cfg AuthConfig) fiber.Handler {
 				return cfg.PublicKey, nil
 			}
 			return cfg.SecretKey, nil
-		})
+		}, parserOptions...)
 
 		if err != nil || !token.Valid {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

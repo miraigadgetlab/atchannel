@@ -99,7 +99,10 @@ func (s *TokenService) ValidateToken(tokenStr string) (*middleware.UserClaims, e
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return s.secretKey, nil
-	})
+	},
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithIssuer(s.issuer),
+	)
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {

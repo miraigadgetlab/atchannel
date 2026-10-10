@@ -17,7 +17,6 @@ var (
 	ErrEmailTaken         = errors.New("email is already registered")
 	ErrNameTaken          = errors.New("name is already taken")
 	ErrUserNotFound       = errors.New("user not found")
-	ErrInvalidRoles       = errors.New("invalid roles")
 	ErrCurrentPassword    = errors.New("current password is incorrect")
 )
 
@@ -52,7 +51,7 @@ func (s *UserService) Create(ctx context.Context, name, email, password string) 
 		return nil, ErrEmailTaken
 	}
 
-	if err := s.db.WithContext(ctx).Model(&models.User{}).Where("name = ?", name).Count(&count).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&models.User{}).Where("lower(name) = lower(?)", name).Count(&count).Error; err != nil {
 		return nil, err
 	}
 	if count > 0 {
@@ -72,10 +71,33 @@ func (s *UserService) Create(ctx context.Context, name, email, password string) 
 	}
 
 	if err := s.db.WithContext(ctx).Create(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil, s.identifierConflict(ctx, name, email)
+		}
 		return nil, err
 	}
 
 	return &user, nil
+}
+
+// identifierConflict reports which unique column a duplicate-key error came
+// from. The pre-insert checks narrow it down but cannot win a race against a
+// concurrent signup; catching gorm.ErrDuplicatedKey closes the gap so the
+// loser gets the same 409 instead of an opaque 500.
+func (s *UserService) identifierConflict(ctx context.Context, name, email string) error {
+	var count int64
+
+	if err := s.db.WithContext(ctx).Model(&models.User{}).Where("email = ?", email).Count(&count).Error; err == nil && count > 0 {
+		return ErrEmailTaken
+	}
+	count = 0
+	if err := s.db.WithContext(ctx).Model(&models.User{}).Where("lower(name) = lower(?)", name).Count(&count).Error; err == nil && count > 0 {
+		return ErrNameTaken
+	}
+
+	// The only unique columns are name and email, so one of the checks above
+	// should have matched; fall back to the name conflict if not.
+	return ErrNameTaken
 }
 
 func (s *UserService) Authenticate(ctx context.Context, email, password string) (*models.User, error) {
@@ -152,16 +174,26 @@ func (s *UserService) GetByID(ctx context.Context, userID uint) (*models.User, e
 
 // UpdateProfile applies only the provided fields; nil fields stay untouched.
 // Name and email are re-checked for uniqueness against every other account.
-func (s *UserService) UpdateProfile(ctx context.Context, userID uint, in UpdateProfileInput) (*models.User, error) {
+// Changing the email additionally requires the current password, because the
+// email is the account's recovery identity: a borrowed session must not be
+// able to quietly redirect it.
+func (s *UserService) UpdateProfile(ctx context.Context, userID uint, currentPassword string, in UpdateProfileInput) (*models.User, error) {
 	user, err := s.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
+	emailChanging := in.Email != nil && *in.Email != user.Email
+	if emailChanging {
+		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)); err != nil {
+			return nil, ErrCurrentPassword
+		}
+	}
+
 	if in.Name != nil && *in.Name != user.Name {
 		var count int64
 		if err := s.db.WithContext(ctx).Model(&models.User{}).
-			Where("name = ? AND id <> ?", *in.Name, userID).Count(&count).Error; err != nil {
+			Where("lower(name) = lower(?) AND id <> ?", *in.Name, userID).Count(&count).Error; err != nil {
 			return nil, err
 		}
 		if count > 0 {
@@ -190,6 +222,9 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID uint, in UpdateP
 	}
 
 	if err := s.db.WithContext(ctx).Save(user).Error; err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil, s.identifierConflict(ctx, user.Name, user.Email)
+		}
 		return nil, err
 	}
 
@@ -310,7 +345,7 @@ func (s *UserService) EnsureAdmin(ctx context.Context, name, email, password str
 		}
 
 		var count int64
-		if err := s.db.WithContext(ctx).Model(&models.User{}).Where("name = ?", candidate).Count(&count).Error; err != nil {
+		if err := s.db.WithContext(ctx).Model(&models.User{}).Where("lower(name) = lower(?)", candidate).Count(&count).Error; err != nil {
 			return nil, err
 		}
 		if count > 0 {

@@ -21,6 +21,12 @@ const (
 
 	MaxAboutMe   = 1000
 	MaxAvatarURL = 500
+
+	// Passwords are bounded by bcrypt: it refuses anything past 72 bytes
+	// and silently operates only on the first 72 otherwise. Enforcing the
+	// upper bound turns a confusing 500 into a clear 400.
+	MinPasswordLength = 8
+	MaxPasswordLength = 72
 )
 
 // ChannelName is the public handle shown as at/<name>: lowercase, URL safe,
@@ -84,6 +90,20 @@ func EmailError(email string) string {
 		return "invalid email address"
 	case at == len(email)-1:
 		return "invalid email address"
+	default:
+		return ""
+	}
+}
+
+// PasswordError returns a reason, or "" when valid. The bounds match what
+// bcrypt accepts: at least MinPasswordLength and no more than
+// MaxPasswordLength bytes (measured in bytes, since that is what bcrypt uses).
+func PasswordError(password string) string {
+	switch {
+	case len(password) < MinPasswordLength:
+		return fmt.Sprintf("password must be at least %d characters long", MinPasswordLength)
+	case len(password) > MaxPasswordLength:
+		return fmt.Sprintf("password must be at most %d characters long", MaxPasswordLength)
 	default:
 		return ""
 	}

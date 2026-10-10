@@ -63,8 +63,6 @@ func svcErr(c fiber.Ctx, err error, fallback string) error {
 		return replyErr(c, fiber.StatusUnauthorized, "Invalid email or password")
 	case errors.Is(err, service.ErrCurrentPassword):
 		return replyErr(c, fiber.StatusBadRequest, "Current password is incorrect")
-	case errors.Is(err, service.ErrInvalidRoles):
-		return replyErr(c, fiber.StatusBadRequest, "Roles must be a non-empty subset of: user, admin")
 	case errors.Is(err, service.ErrForbidden):
 		// Handlers that need bespoke wording check for this first; the rest
 		// must still land on 403 rather than a misleading 500.

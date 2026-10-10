@@ -34,6 +34,7 @@ services:
       - DB_NAME=${POSTGRES_DB:-atchannel_db}
       - DB_PORT=5432
       - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in deploy/.env}
+      - JWT_ISSUER=${JWT_ISSUER:-atchannel}
       - ADMIN_NAME=${ADMIN_NAME:-}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
@@ -56,7 +57,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/v1/health || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5

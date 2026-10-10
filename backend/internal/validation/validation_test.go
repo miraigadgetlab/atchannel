@@ -88,6 +88,25 @@ func TestEmailError(t *testing.T) {
 	}
 }
 
+func TestPasswordError(t *testing.T) {
+	valid := []string{
+		"12345678",
+		stringsRepeat("a", MaxPasswordLength),
+	}
+	for _, pw := range valid {
+		if got := PasswordError(pw); got != "" {
+			t.Errorf("PasswordError(%d chars) = %q, want \"\"", len(pw), got)
+		}
+	}
+
+	if got := PasswordError("short"); got == "" {
+		t.Error("PasswordError(\"short\") = \"\", want rejection")
+	}
+	if got := PasswordError(stringsRepeat("a", MaxPasswordLength+1)); got == "" {
+		t.Error("PasswordError(73 chars) = \"\", want rejection")
+	}
+}
+
 func TestTooLongCountsRunesNotBytes(t *testing.T) {
 	// Four emoji are 4 runes but 16 bytes: a byte-based check would reject
 	// this well under the limit.

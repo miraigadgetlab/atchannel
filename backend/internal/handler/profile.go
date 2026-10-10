@@ -14,14 +14,14 @@ import (
 const (
 	maxAboutMeLength   = validation.MaxAboutMe
 	maxAvatarURLLength = validation.MaxAvatarURL
-	minPasswordLength  = 8
 )
 
 type UpdateProfileRequest struct {
-	Name      *string `json:"name"`
-	Email     *string `json:"email"`
-	AboutMe   *string `json:"about_me"`
-	AvatarURL *string `json:"avatar_url"`
+	Name            *string `json:"name"`
+	Email           *string `json:"email"`
+	AboutMe         *string `json:"about_me"`
+	AvatarURL       *string `json:"avatar_url"`
+	CurrentPassword *string `json:"current_password"`
 }
 
 type ChangePasswordRequest struct {
@@ -105,7 +105,12 @@ func (h *ProfileHandler) Update(c fiber.Ctx) error {
 		req.AvatarURL = &trimmed
 	}
 
-	user, err := h.userService.UpdateProfile(c.Context(), userID, service.UpdateProfileInput{
+	currentPassword := ""
+	if req.CurrentPassword != nil {
+		currentPassword = *req.CurrentPassword
+	}
+
+	user, err := h.userService.UpdateProfile(c.Context(), userID, currentPassword, service.UpdateProfileInput{
 		Name:      req.Name,
 		Email:     req.Email,
 		AboutMe:   req.AboutMe,
@@ -113,6 +118,8 @@ func (h *ProfileHandler) Update(c fiber.Ctx) error {
 	})
 	if err != nil {
 		switch {
+		case errors.Is(err, service.ErrCurrentPassword):
+			return replyErr(c, fiber.StatusUnauthorized, "Current password is incorrect (required to change email)")
 		case errors.Is(err, service.ErrEmailTaken):
 			return replyErr(c, fiber.StatusConflict, "An account with this email already exists")
 		case errors.Is(err, service.ErrUserNotFound):
@@ -140,8 +147,8 @@ func (h *ProfileHandler) ChangePassword(c fiber.Ctx) error {
 	switch {
 	case req.CurrentPassword == "" || req.NewPassword == "":
 		return replyBadRequest(c, "current_password and new_password are required")
-	case len(req.NewPassword) < minPasswordLength:
-		return replyBadRequest(c, "New password must be at least 8 characters long")
+	case validation.PasswordError(req.NewPassword) != "":
+		return replyBadRequest(c, validation.PasswordError(req.NewPassword))
 	case req.NewPassword == req.CurrentPassword:
 		return replyBadRequest(c, "New password must differ from the current one")
 	}

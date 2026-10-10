@@ -134,7 +134,7 @@ func (s *PostService) Update(ctx context.Context, id, userID uint, isAdmin bool,
 		return nil, err
 	}
 
-	if err := s.db.WithContext(ctx).Preload("User").Preload("Comments.User").First(&post, post.ID).Error; err != nil {
+	if err := s.db.WithContext(ctx).Preload("User").First(&post, post.ID).Error; err != nil {
 		return nil, err
 	}
 
@@ -166,7 +166,7 @@ func (s *PostService) Delete(ctx context.Context, id, userID uint, isAdmin bool)
 func (s *PostService) GetByID(ctx context.Context, id uint) (*models.Post, error) {
 	var post models.Post
 
-	if err := s.db.WithContext(ctx).Preload("User").Preload("Comments.User").First(&post, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).Preload("User").First(&post, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrPostNotFound
 		}

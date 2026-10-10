@@ -41,6 +41,11 @@ func Connect() {
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Warn),
+			// Turn driver-level errors into gorm sentinels: a unique-index
+			// race between the "is it taken" check and INSERT becomes
+			// gorm.ErrDuplicatedKey, which services map to a clean 409
+			// instead of a 500.
+			TranslateError: true,
 		})
 		if err == nil {
 			sqlDB, dbErr := DB.DB()
@@ -66,6 +71,19 @@ func Connect() {
 
 		log.Printf("waiting for database (%d/%d): %v", attempt, maxAttempts, err)
 		time.Sleep(time.Second)
+	}
+}
+
+// Close releases the underlying connection pool. Called on shutdown so the
+// database sees the connections go away cleanly.
+func Close() {
+	if DB == nil {
+		return
+	}
+	if sqlDB, err := DB.DB(); err == nil {
+		if err := sqlDB.Close(); err != nil {
+			log.Printf("database close error: %v", err)
+		}
 	}
 }
 
@@ -96,6 +114,7 @@ func Migrate() {
 	}
 
 	ensureSearchIndexes()
+	ensureUserNameIndex()
 
 	err := DB.AutoMigrate(
 		&models.User{},
@@ -228,6 +247,21 @@ func ensureSearchIndexes() {
 		if err := DB.Exec(stmt).Error; err != nil {
 			log.Printf("warning: could not create search index %s: %v", idx.name, err)
 		}
+	}
+}
+
+// ensureUserNameIndex makes the display name unique case-insensitively, so
+// "Alice" and "alice" cannot coexist and be mistaken for each other. The
+// model's own uniqueIndex stays as a redundant case-sensitive guard; this one
+// is strictly stronger. If pre-existing names collide ignoring case, creation
+// fails softly and boot continues instead of refusing to start.
+func ensureUserNameIndex() {
+	if !tableExists("users") {
+		return
+	}
+
+	if err := DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_name_lower ON users (lower(name))").Error; err != nil {
+		log.Printf("warning: could not create case-insensitive unique index on users.name: %v", err)
 	}
 }
 

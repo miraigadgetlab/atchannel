@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -24,15 +25,21 @@ func main() {
 	cfg := config.LoadConfig()
 
 	db.Connect()
+	defer db.Close()
 	db.Migrate()
 
-	tokenService := service.NewTokenService(cfg.JWTSecret, "atchannel")
+	tokenService := service.NewTokenService(cfg.JWTSecret, cfg.JWTIssuer)
 	userService := service.NewUserService(db.DB)
 	channelService := service.NewChannelService(db.DB)
 	postService := service.NewPostService(db.DB)
 	commentService := service.NewCommentService(db.DB)
 	statsService := service.NewStatsService(db.DB)
 	sessionService := service.NewSessionService(db.DB)
+
+	// Dead refresh tokens are pruned on a schedule: Record only clears the
+	// rows of users who log in again, so abandoned accounts would otherwise
+	// accumulate expired sessions forever.
+	go runTokenPruner(sessionService)
 
 	if cfg.AdminEmail != "" && cfg.AdminPassword != "" {
 		admin, err := userService.EnsureAdmin(context.Background(), cfg.AdminName, cfg.AdminEmail, cfg.AdminPassword)
@@ -54,6 +61,26 @@ func main() {
 		// A single abusive client must not be able to pin memory with a
 		// giant body. 1MB comfortably fits the longest allowed post.
 		BodyLimit: 1 << 20,
+		// Keep every error in the same {"error","message"} envelope the
+		// handlers use. Fiber errors (405, body limit, ...) keep their
+		// status; anything else is a logged 500 with no internal detail.
+		ErrorHandler: func(c fiber.Ctx, err error) error {
+			code := fiber.StatusInternalServerError
+			message := "Internal Server Error"
+
+			var fe *fiber.Error
+			if errors.As(err, &fe) {
+				code = fe.Code
+				message = fe.Message
+			} else {
+				log.Printf("unhandled request error (%s %s): %v", c.Method(), c.Path(), err)
+			}
+
+			return c.Status(code).JSON(fiber.Map{
+				"error":   http.StatusText(code),
+				"message": message,
+			})
+		},
 	}
 
 	// Behind a reverse proxy every request arrives from the proxy's address,
@@ -101,4 +128,25 @@ func main() {
 	}
 
 	log.Print("stopped cleanly")
+}
+
+// runTokenPruner deletes expired refresh tokens every few hours until the
+// process exits.
+func runTokenPruner(sessions *service.SessionService) {
+	ticker := time.NewTicker(6 * time.Hour)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		pruned, err := sessions.PruneExpired(ctx)
+		cancel()
+
+		if err != nil {
+			log.Printf("refresh token prune failed: %v", err)
+			continue
+		}
+		if pruned > 0 {
+			log.Printf("pruned %d expired refresh tokens", pruned)
+		}
+	}
 }

@@ -11,6 +11,7 @@ import (
 	"atchannel-backend/internal/models"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ErrTokenReuse means a refresh token was presented after it had already
@@ -63,24 +64,6 @@ func (s *SessionService) Record(ctx context.Context, userID uint, familyID, refr
 	return s.db.WithContext(ctx).Create(&row).Error
 }
 
-// Lookup returns the stored row for a presented refresh token, or nil when
-// unknown.
-func (s *SessionService) Lookup(ctx context.Context, refreshToken string) (*models.RefreshToken, error) {
-	var row models.RefreshToken
-
-	err := s.db.WithContext(ctx).
-		Where("token_hash = ?", HashToken(refreshToken)).
-		First(&row).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &row, nil
-}
-
 // Rotate revokes the presented token and admits its replacement, but only
 // if the presented one is still live. Everything happens in one transaction
 // so a crash cannot leave the user with a token that is neither revoked nor
@@ -102,7 +85,13 @@ func (s *SessionService) Rotate(ctx context.Context, oldRefreshToken, newRefresh
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var row models.RefreshToken
 
-		err := tx.Where("token_hash = ?", HashToken(oldRefreshToken)).
+		// FOR UPDATE serializes concurrent rotations of the same token:
+		// without it two requests could both read revoked_at = NULL and each
+		// mint a replacement, leaving two live refresh tokens and silently
+		// defeating reuse detection. The second transaction now waits, then
+		// sees the row already revoked and burns the family.
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("token_hash = ?", HashToken(oldRefreshToken)).
 			First(&row).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -167,18 +156,6 @@ func (s *SessionService) Rotate(ctx context.Context, oldRefreshToken, newRefresh
 	return result, nil
 }
 
-// IsValid reports whether the token exists, is neither revoked nor expired.
-func (s *SessionService) IsValid(ctx context.Context, refreshToken string) (bool, error) {
-	var count int64
-
-	err := s.db.WithContext(ctx).
-		Model(&models.RefreshToken{}).
-		Where("token_hash = ? AND revoked_at IS NULL AND expires_at > ?", HashToken(refreshToken), time.Now()).
-		Count(&count).Error
-
-	return count > 0, err
-}
-
 // Revoke invalidates a single session. Returns false when the token was
 // unknown or already revoked, which keeps logout idempotent.
 func (s *SessionService) Revoke(ctx context.Context, refreshToken, reason string) (bool, error) {
@@ -211,4 +188,15 @@ func (s *SessionService) RevokeAllForUser(ctx context.Context, userID uint, reas
 		return 0, res.Error
 	}
 	return res.RowsAffected, nil
+}
+
+// PruneExpired deletes every refresh token past its expiry, across all users.
+// Record already prunes a single user's rows on fresh login, but accounts that
+// never sign in again would otherwise leave their dead rows behind forever.
+func (s *SessionService) PruneExpired(ctx context.Context) (int64, error) {
+	res := s.db.WithContext(ctx).
+		Where("expires_at < ?", time.Now()).
+		Delete(&models.RefreshToken{})
+
+	return res.RowsAffected, res.Error
 }

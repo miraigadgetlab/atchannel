@@ -59,6 +59,9 @@ func (s *ChannelService) Create(ctx context.Context, userID uint, name, title, d
 	}
 
 	if err := s.db.WithContext(ctx).Create(&channel).Error; err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil, ErrChannelNameTaken
+		}
 		return nil, err
 	}
 
@@ -142,6 +145,9 @@ func (s *ChannelService) Update(ctx context.Context, id, userID uint, isAdmin bo
 	}
 
 	if err := s.db.WithContext(ctx).Save(&channel).Error; err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil, ErrChannelNameTaken
+		}
 		return nil, err
 	}
 

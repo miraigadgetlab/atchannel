@@ -11,6 +11,10 @@ import (
 type Config struct {
 	Port      string
 	JWTSecret []byte
+	// JWTIssuer is the "iss" claim minted into every token and enforced on
+	// every parse, so tokens from another deployment sharing the secret (a
+	// staging copy, say) are rejected here.
+	JWTIssuer string
 
 	// AllowedOrigins drives the CORS policy. Empty/unset means wildcard.
 	AllowedOrigins []string
@@ -56,6 +60,7 @@ func LoadConfig() *Config {
 	cfg := &Config{
 		Port:              ":" + port,
 		JWTSecret:         []byte(secret),
+		JWTIssuer:         envString("JWT_ISSUER", "atchannel"),
 		AllowedOrigins:    parseOrigins(os.Getenv("CORS_ORIGINS")),
 		RateLimitMax:      envInt("RATE_LIMIT_MAX", 10),
 		RateLimitWindow:   envDuration("RATE_LIMIT_WINDOW", time.Minute),
@@ -89,6 +94,14 @@ func LoadConfig() *Config {
 	}
 
 	return cfg
+}
+
+// envString reads a string override, falling back when unset or blank.
+func envString(name, fallback string) string {
+	if raw := strings.TrimSpace(os.Getenv(name)); raw != "" {
+		return raw
+	}
+	return fallback
 }
 
 // envInt reads an integer override, falling back on empty or invalid values.

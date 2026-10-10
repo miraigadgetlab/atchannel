@@ -57,8 +57,8 @@ func (h *AuthHandler) Register(c fiber.Ctx) error {
 		return replyBadRequest(c, validation.NameError(req.Name))
 	case validation.EmailError(req.Email) != "":
 		return replyBadRequest(c, validation.EmailError(req.Email))
-	case len(req.Password) < 8:
-		return replyBadRequest(c, "Password must be at least 8 characters long")
+	case validation.PasswordError(req.Password) != "":
+		return replyBadRequest(c, validation.PasswordError(req.Password))
 	}
 
 	user, err := h.userService.Create(c.Context(), req.Name, req.Email, req.Password)
@@ -78,6 +78,11 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	if err := c.Bind().Body(&req); err != nil {
 		return replyBadRequest(c, "Invalid request payload format")
 	}
+
+	// Same normalization as register/profile: emails are stored lowercased,
+	// so login must look them up the same way or "User@Example.com" never
+	// matches the account it belongs to.
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 
 	if req.Email == "" || req.Password == "" {
 		return replyBadRequest(c, "Email and password are required")

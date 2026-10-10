@@ -56,7 +56,7 @@ func (h *CommentHandler) Create(c fiber.Ctx) error {
 		return svcErr(c, err, "Failed to create comment")
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(comment)
+	return c.Status(fiber.StatusCreated).JSON(toCommentResponse(*comment))
 }
 
 func (h *CommentHandler) List(c fiber.Ctx) error {
@@ -79,7 +79,7 @@ func (h *CommentHandler) List(c fiber.Ctx) error {
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,
-		"items":  comments,
+		"items":  toCommentResponses(comments),
 	})
 }
 

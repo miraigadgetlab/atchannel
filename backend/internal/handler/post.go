@@ -64,7 +64,7 @@ func (h *PostHandler) Create(c fiber.Ctx) error {
 		return replyInternal(c, err, "Failed to create post")
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(post)
+	return c.Status(fiber.StatusCreated).JSON(toPostResponse(*post))
 }
 
 func (h *PostHandler) List(c fiber.Ctx) error {
@@ -108,7 +108,7 @@ func (h *PostHandler) List(c fiber.Ctx) error {
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,
-		"items":  posts,
+		"items":  toPostResponses(posts),
 	})
 }
 
@@ -123,7 +123,7 @@ func (h *PostHandler) GetByID(c fiber.Ctx) error {
 		return svcErr(c, err, "Failed to fetch post")
 	}
 
-	return c.JSON(post)
+	return c.JSON(toPostResponse(*post))
 }
 
 func (h *PostHandler) Update(c fiber.Ctx) error {
@@ -177,7 +177,7 @@ func (h *PostHandler) Update(c fiber.Ctx) error {
 		return postErrorResponse(c, err, "Failed to update post")
 	}
 
-	return c.JSON(post)
+	return c.JSON(toPostResponse(*post))
 }
 
 func (h *PostHandler) Delete(c fiber.Ctx) error {

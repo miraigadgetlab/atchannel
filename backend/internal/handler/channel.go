@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"atchannel-backend/internal/models"
 	"atchannel-backend/internal/service"
 	"atchannel-backend/internal/validation"
 
@@ -29,14 +28,14 @@ type UpdateChannelRequest struct {
 
 // ChannelDetailResponse is the channel view with a paginated slice of its posts.
 type ChannelDetailResponse struct {
-	ID          uint          `json:"id"`
-	Name        string        `json:"name"`
-	Title       string        `json:"title"`
-	Description string        `json:"description"`
-	CreatedBy   *uint         `json:"created_by,omitempty"`
-	CreatedAt   time.Time     `json:"created_at"`
-	PostCount   int64         `json:"post_count"`
-	Posts       []models.Post `json:"posts"`
+	ID          uint           `json:"id"`
+	Name        string         `json:"name"`
+	Title       string         `json:"title"`
+	Description string         `json:"description"`
+	CreatedBy   *uint          `json:"created_by,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
+	PostCount   int64          `json:"post_count"`
+	Posts       []PostResponse `json:"posts"`
 }
 
 type ChannelHandler struct {
@@ -157,7 +156,7 @@ func (h *ChannelHandler) GetByID(c fiber.Ctx) error {
 		CreatedBy:   channel.CreatedBy,
 		CreatedAt:   channel.CreatedAt,
 		PostCount:   postCount,
-		Posts:       posts,
+		Posts:       toPostResponses(posts),
 	})
 }
 

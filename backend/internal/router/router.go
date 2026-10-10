@@ -1,12 +1,15 @@
 package router
 
 import (
+	"time"
+
 	"atchannel-backend/internal/config"
 	"atchannel-backend/internal/handler"
 	"atchannel-backend/internal/middleware"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -21,6 +24,15 @@ type RouterDeps struct {
 }
 
 func SetupRoutes(app *fiber.App, deps RouterDeps) {
+	// Panic recovery is the outermost layer, so a bug in any middleware or
+	// handler becomes a logged 500 (via the app ErrorHandler) instead of a
+	// crashed process.
+	app.Use(recover.New())
+
+	// Cap request lifetime so a slow query cannot pin a DB connection; the
+	// deadline rides along on c.Context(), which the services pass to GORM.
+	app.Use(middleware.Timeout(15 * time.Second))
+
 	// CORS first so preflight OPTIONS is answered before any auth guard.
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: deps.Config.AllowedOrigins,
@@ -48,6 +60,7 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	authGuard := middleware.NewAuthMiddleware(middleware.AuthConfig{
 		SecretKey:     deps.Config.JWTSecret,
 		SigningMethod: jwt.SigningMethodHS256,
+		Issuer:        deps.Config.JWTIssuer,
 	})
 
 	// Brute force protection on the public auth endpoints. Register counts
@@ -89,14 +102,14 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	protected.Put("/me/password", deps.ProfileHandler.ChangePassword)
 	protected.Post("/auth/logout-all", deps.AuthHandler.LogoutAll)
 	protected.Post("/channels", writeLimit, deps.ChannelHandler.Create)
-	protected.Put("/channels/:id", deps.ChannelHandler.Update)
+	protected.Put("/channels/:id", writeLimit, deps.ChannelHandler.Update)
 	// Creator or admin — the handler enforces ownership (see ChannelHandler.Delete).
-	protected.Delete("/channels/:id", deps.ChannelHandler.Delete)
+	protected.Delete("/channels/:id", writeLimit, deps.ChannelHandler.Delete)
 	protected.Post("/posts", writeLimit, deps.PostHandler.Create)
-	protected.Put("/posts/:id", deps.PostHandler.Update)
-	protected.Delete("/posts/:id", deps.PostHandler.Delete)
+	protected.Put("/posts/:id", writeLimit, deps.PostHandler.Update)
+	protected.Delete("/posts/:id", writeLimit, deps.PostHandler.Delete)
 	protected.Post("/posts/:id/comments", writeLimit, deps.CommentHandler.Create)
-	protected.Delete("/comments/:commentID", deps.CommentHandler.Delete)
+	protected.Delete("/comments/:commentID", writeLimit, deps.CommentHandler.Delete)
 
 	// Admin only
 	admin := api.Group("", authGuard, middleware.RequireRole("admin"))
