@@ -1,0 +1,49 @@
+import { request } from './client'
+import type { PublicProfile, User } from '@/types/api'
+
+/** Only the provided fields are sent; the backend treats omitted as "leave". */
+export interface UpdateProfileInput {
+  name?: string
+  email?: string
+  about_me?: string
+  avatar_url?: string
+  /** Required by the backend to change the email address. */
+  current_password?: string
+}
+
+export interface ChangePasswordResult {
+  changed: boolean
+  sessions_revoked: number
+  warning?: string
+}
+
+export const usersApi = {
+  me(): Promise<User> {
+    return request('/me')
+  },
+
+  updateMe(input: UpdateProfileInput): Promise<User> {
+    return request('/me', { method: 'PUT', body: input })
+  },
+
+  changePassword(currentPassword: string, newPassword: string): Promise<ChangePasswordResult> {
+    return request('/me/password', {
+      method: 'PUT',
+      body: { current_password: currentPassword, new_password: newPassword },
+    })
+  },
+
+  resendVerification(): Promise<{ sent: boolean }> {
+    return request('/me/verify-email', { method: 'POST' })
+  },
+
+  uploadAvatar(file: File): Promise<User> {
+    const form = new FormData()
+    form.append('avatar', file)
+    return request('/me/avatar', { method: 'POST', body: form })
+  },
+
+  getProfile(id: number | string): Promise<PublicProfile> {
+    return request(`/users/${id}`)
+  },
+}

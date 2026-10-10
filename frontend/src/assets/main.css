@@ -1,0 +1,32 @@
+@import 'tailwindcss';
+
+/*
+ * Tailwind v4 reads `@theme` to generate design tokens as CSS variables and
+ * utilities. Keeping the font stack here means components can rely on
+ * `font-sans` without repeating it.
+ */
+@theme {
+  --font-sans:
+    Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: #f8fafc;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Long post bodies keep their line breaks without enabling full HTML. */
+.whitespace-pre-wrap {
+  white-space: pre-wrap;
+}
