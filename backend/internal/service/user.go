@@ -235,6 +235,58 @@ func (s *UserService) GetPublicProfile(ctx context.Context, userID uint) (*model
 	return user, posts, comments, nil
 }
 
+// ChannelerRank is one row of the public channeler leaderboard: an account
+// plus how many posts it has written.
+type ChannelerRank struct {
+	User      models.User
+	PostCount int64
+}
+
+// Channelers returns accounts ordered by how many posts they have written,
+// most active first. Only accounts that have posted at least once and are not
+// banned appear — a leaderboard of people who never wrote anything (or were
+// suspended) is noise. The total matches the same filter so the client can
+// page through it.
+func (s *UserService) Channelers(ctx context.Context, limit, offset int) ([]ChannelerRank, int64, error) {
+	const postCountExpr = "(SELECT COUNT(*) FROM posts WHERE posts.user_id = users.id)"
+	where := "users.banned_at IS NULL AND " + postCountExpr + " > 0"
+
+	var total int64
+	if err := s.db.WithContext(ctx).Model(&models.User{}).Where(where).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	type row struct {
+		models.User
+		PostCount int64 `gorm:"column:post_count"`
+	}
+
+	query := s.db.WithContext(ctx).
+		Model(&models.User{}).
+		Where(where).
+		Select("users.*, " + postCountExpr + " AS post_count").
+		Order("post_count DESC, users.id ASC")
+
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset > 0 {
+		query = query.Offset(offset)
+	}
+
+	var rows []row
+	if err := query.Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	ranks := make([]ChannelerRank, len(rows))
+	for i, r := range rows {
+		ranks[i] = ChannelerRank{User: r.User, PostCount: r.PostCount}
+	}
+
+	return ranks, total, nil
+}
+
 // UpdateProfile applies only the provided fields; nil fields stay untouched.
 // Name and email are re-checked for uniqueness against every other account.
 // Changing the email additionally requires the current password, because the

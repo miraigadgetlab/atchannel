@@ -39,19 +39,43 @@ type PublicProfile struct {
 	CommentCount int64     `json:"comment_count"`
 }
 
+// ChannelerResponse is one leaderboard entry: an account's public fields plus
+// how many posts it has written. Like PublicUser it deliberately omits email,
+// roles and the password hash.
+type ChannelerResponse struct {
+	ID        uint   `json:"id"`
+	Name      string `json:"name"`
+	AboutMe   string `json:"about_me"`
+	AvatarURL string `json:"avatar_url,omitempty"`
+	PostCount int64  `json:"post_count"`
+}
+
+// toChannelerResponse builds the public leaderboard view for an account and its
+// post count.
+func toChannelerResponse(user models.User, postCount int64) ChannelerResponse {
+	return ChannelerResponse{
+		ID:        user.ID,
+		Name:      user.Name,
+		AboutMe:   user.AboutMe,
+		AvatarURL: user.AvatarUrl,
+		PostCount: postCount,
+	}
+}
+
 type PostResponse struct {
-	ID        uint       `json:"id"`
-	ChannelID uint       `json:"channel_id"`
-	Title     string     `json:"title"`
-	Content   string     `json:"content"`
-	UserID    uint       `json:"user_id"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	User      PublicUser `json:"user"`
-	Likes     int64      `json:"likes"`
-	LikedByMe bool       `json:"liked_by_me"`
-	Pinned    bool       `json:"pinned"`
-	Locked    bool       `json:"locked"`
+	ID          uint       `json:"id"`
+	ChannelID   uint       `json:"channel_id"`
+	ChannelName string     `json:"channel_name"`
+	Title       string     `json:"title"`
+	Content     string     `json:"content"`
+	UserID      uint       `json:"user_id"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	User        PublicUser `json:"user"`
+	Likes       int64      `json:"likes"`
+	LikedByMe   bool       `json:"liked_by_me"`
+	Pinned      bool       `json:"pinned"`
+	Locked      bool       `json:"locked"`
 	// Comments is only populated by endpoints that actually load them; it is
 	// omitted otherwise. The dedicated /posts/:id/comments endpoint is the
 	// paginated source of truth.
@@ -122,18 +146,19 @@ func toNotificationResponses(items []models.Notification) []NotificationResponse
 // account (when there is one) has liked the post.
 func toPostResponse(p models.Post, likedByMe bool) PostResponse {
 	resp := PostResponse{
-		ID:        p.ID,
-		ChannelID: p.ChannelID,
-		Title:     p.Title,
-		Content:   p.Content,
-		UserID:    p.UserID,
-		CreatedAt: p.CreatedAt,
-		UpdatedAt: p.UpdatedAt,
-		User:      toPublicUser(p.User),
-		Likes:     p.LikeCount,
-		LikedByMe: likedByMe,
-		Pinned:    p.PinnedAt != nil,
-		Locked:    p.LockedAt != nil,
+		ID:          p.ID,
+		ChannelID:   p.ChannelID,
+		ChannelName: p.ChannelName,
+		Title:       p.Title,
+		Content:     p.Content,
+		UserID:      p.UserID,
+		CreatedAt:   p.CreatedAt,
+		UpdatedAt:   p.UpdatedAt,
+		User:        toPublicUser(p.User),
+		Likes:       p.LikeCount,
+		LikedByMe:   likedByMe,
+		Pinned:      p.PinnedAt != nil,
+		Locked:      p.LockedAt != nil,
 	}
 	if len(p.Comments) > 0 {
 		resp.Comments = toCommentResponses(p.Comments)

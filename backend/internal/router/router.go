@@ -115,6 +115,7 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	api.Get("/posts", optionalAuth, deps.PostHandler.List)
 	api.Get("/posts/:id", optionalAuth, deps.PostHandler.GetByID)
 	api.Get("/posts/:id/comments", deps.CommentHandler.List)
+	api.Get("/users", deps.ProfileHandler.ListChannelers)
 	api.Get("/users/:id", deps.ProfileHandler.GetByID)
 
 	// Authenticated

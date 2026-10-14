@@ -40,6 +40,33 @@ func TestPostResponseHidesPrivateUserFields(t *testing.T) {
 	}
 }
 
+// The channeler leaderboard is public like the author view, so it must not
+// leak the private account fields either (email, roles, password hash).
+func TestChannelerResponseHidesPrivateUserFields(t *testing.T) {
+	user := models.User{
+		ID:       3,
+		Name:     "carol",
+		Email:    "carol@example.com",
+		Password: "bcrypt-hash",
+		Roles:    []string{"moderator"},
+	}
+
+	raw, err := json.Marshal(toChannelerResponse(user, 42))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	body := string(raw)
+
+	for _, secret := range []string{"carol@example.com", "bcrypt-hash", `"email"`, `"password"`, `"roles"`} {
+		if strings.Contains(body, secret) {
+			t.Errorf("serialized channeler leaks %q: %s", secret, body)
+		}
+	}
+	if !strings.Contains(body, `"post_count":42`) {
+		t.Errorf("body = %s, want the post count to be public", body)
+	}
+}
+
 func TestCommentResponseHidesPrivateUserFields(t *testing.T) {
 	comment := models.Comment{
 		ID:      1,

@@ -58,8 +58,14 @@ type Post struct {
 	UpdatedAt time.Time `gorm:"not null" json:"updated_at"`
 	User      User      `gorm:"foreignKey:UserID" json:"user"`
 	Comments  []Comment `json:"comments,omitempty"`
-	// LikeCount is not a column: it is filled from a subquery when listing.
-	LikeCount int64 `gorm:"-" json:"like_count"`
+	// LikeCount is not a column: it is filled from a correlated subquery when
+	// listing. `->` keeps it read-only and `-:migration` stops AutoMigrate from
+	// adding the column. A plain `-` would set Readable=false, which silently
+	// drops the subquery value during scan (likes always came back as 0).
+	LikeCount int64 `gorm:"->;-:migration" json:"like_count"`
+	// ChannelName is derived the same way, so feeds can render "#name" without
+	// resolving each channel id client-side.
+	ChannelName string `gorm:"->;-:migration" json:"channel_name"`
 	// PinnedAt is set by a moderator/creator to lift a post above the feed.
 	PinnedAt *time.Time `json:"pinned_at,omitempty"`
 	// LockedAt is set by a moderator to freeze a thread: nobody but the

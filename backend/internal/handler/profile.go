@@ -83,6 +83,33 @@ func (h *ProfileHandler) GetByID(c fiber.Ctx) error {
 	})
 }
 
+// ListChannelers is the public leaderboard: accounts ranked by how many posts
+// they have written, most active first. It is unauthenticated and exposes only
+// the safe author fields plus the post count.
+func (h *ProfileHandler) ListChannelers(c fiber.Ctx) error {
+	limit, offset, err := parsePagination(c)
+	if err != nil {
+		return replyBadRequest(c, err.Error())
+	}
+
+	ranks, total, err := h.userService.Channelers(c.Context(), limit, offset)
+	if err != nil {
+		return replyInternal(c, err, "Failed to fetch channelers")
+	}
+
+	items := make([]ChannelerResponse, len(ranks))
+	for i, rank := range ranks {
+		items[i] = toChannelerResponse(rank.User, rank.PostCount)
+	}
+
+	return c.JSON(fiber.Map{
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+		"items":  items,
+	})
+}
+
 func (h *ProfileHandler) Update(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {

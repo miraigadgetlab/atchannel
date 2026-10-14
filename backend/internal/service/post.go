@@ -45,6 +45,13 @@ type PostService struct {
 	db *gorm.DB
 }
 
+// postColumns is the shared SELECT for post queries: every post column plus the
+// two derived values that are not columns — the like tally and the channel name
+// — so a feed costs one round trip instead of one query per post.
+const postColumns = "posts.*, " +
+	"(SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = posts.id) AS like_count, " +
+	"(SELECT name FROM channels c WHERE c.id = posts.channel_id) AS channel_name"
+
 func NewPostService(db *gorm.DB) *PostService {
 	return &PostService{db: db}
 }
@@ -108,7 +115,7 @@ func (s *PostService) Create(ctx context.Context, userID, channelID uint, title,
 		return nil, err
 	}
 
-	if err := s.db.WithContext(ctx).Preload("User").First(&post, post.ID).Error; err != nil {
+	if err := s.db.WithContext(ctx).Preload("User").Select(postColumns).First(&post, post.ID).Error; err != nil {
 		return nil, err
 	}
 
@@ -140,7 +147,7 @@ func (s *PostService) List(ctx context.Context, filter PostFilter) ([]models.Pos
 	// popularity and showing the tally cost one round trip, not one per post.
 	query := s.db.WithContext(ctx).
 		Preload("User").
-		Select("posts.*, (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = posts.id) AS like_count")
+		Select(postColumns)
 
 	if filter.ChannelID != nil {
 		query = query.Where("channel_id = ?", *filter.ChannelID)
@@ -259,7 +266,7 @@ func (s *PostService) Update(ctx context.Context, id, userID uint, canModerate b
 
 	err := s.db.WithContext(ctx).
 		Preload("User").
-		Select("posts.*, (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = posts.id) AS like_count").
+		Select(postColumns).
 		First(&post, post.ID).Error
 	if err != nil {
 		return nil, err
@@ -301,7 +308,7 @@ func (s *PostService) GetByID(ctx context.Context, id uint) (*models.Post, error
 
 	err := s.db.WithContext(ctx).
 		Preload("User").
-		Select("posts.*, (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = posts.id) AS like_count").
+		Select(postColumns).
 		First(&post, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
