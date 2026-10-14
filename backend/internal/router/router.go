@@ -109,6 +109,7 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	api.Post("/auth/verify-email", deps.AccountHandler.VerifyEmail)
 	api.Post("/auth/forgot-password", forgotLimit, deps.AccountHandler.ForgotPassword)
 	api.Post("/auth/reset-password", forgotLimit, deps.AccountHandler.ResetPassword)
+	api.Post("/auth/reset-password-code", forgotLimit, deps.AccountHandler.ResetPasswordWithCode)
 
 	api.Get("/channels", deps.ChannelHandler.List)
 	api.Get("/channels/:id", deps.ChannelHandler.GetByID)
@@ -125,6 +126,8 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	protected.Put("/me", deps.ProfileHandler.Update)
 	protected.Put("/me/password", deps.ProfileHandler.ChangePassword)
 	protected.Post("/me/verify-email", deps.AccountHandler.ResendVerification)
+	protected.Get("/me/recovery-codes", deps.AccountHandler.RecoveryCodeStatus)
+	protected.Post("/me/recovery-codes", deps.AccountHandler.RecoveryCodes)
 	protected.Post("/me/avatar", writeLimit, deps.ProfileHandler.UploadAvatar)
 	protected.Post("/auth/logout-all", deps.AuthHandler.LogoutAll)
 	protected.Post("/channels", writeLimit, deps.ChannelHandler.Create)
@@ -151,6 +154,7 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	admin.Put("/admin/users/:id/roles", deps.AdminHandler.SetRoles)
 	admin.Put("/admin/users/:id/ban", deps.AdminHandler.SetBanned)
 	admin.Delete("/admin/users/:id", deps.AdminHandler.DeleteUser)
+	admin.Post("/admin/users/:id/recovery-codes", deps.AdminHandler.GenerateRecoveryCodes)
 
 	// Moderation: admins and moderators may pin/lock threads.
 	mod := api.Group("", authGuard, middleware.RequireRole("admin", "moderator"))

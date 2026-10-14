@@ -23,6 +23,9 @@ type RegisterRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	// Note is an optional private message for the admins, visible only to the
+	// account owner and to admins.
+	Note string `json:"note"`
 }
 
 type AuthHandler struct {
@@ -52,6 +55,9 @@ func (h *AuthHandler) Register(c fiber.Ctx) error {
 
 	req.Name = strings.TrimSpace(req.Name)
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Note = strings.TrimSpace(req.Note)
+
+	noteError := validation.TooLong("note", req.Note, validation.MaxNote)
 
 	switch {
 	case req.Name == "" || req.Email == "" || req.Password == "":
@@ -62,9 +68,11 @@ func (h *AuthHandler) Register(c fiber.Ctx) error {
 		return replyBadRequest(c, validation.EmailError(req.Email))
 	case validation.PasswordError(req.Password) != "":
 		return replyBadRequest(c, validation.PasswordError(req.Password))
+	case noteError != "":
+		return replyBadRequest(c, noteError)
 	}
 
-	user, err := h.userService.Create(c.Context(), req.Name, req.Email, req.Password)
+	user, err := h.userService.Create(c.Context(), req.Name, req.Email, req.Password, req.Note)
 	if err != nil {
 		if errors.Is(err, service.ErrEmailTaken) {
 			return replyErr(c, fiber.StatusConflict, "An account with this email already exists")

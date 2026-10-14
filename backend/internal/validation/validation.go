@@ -22,6 +22,9 @@ const (
 	MaxAboutMe   = 1000
 	MaxAvatarURL = 500
 
+	// MaxNote bounds the private message an account leaves for the admins.
+	MaxNote = 500
+
 	// Passwords are bounded by bcrypt: it refuses anything past 72 bytes
 	// and silently operates only on the first 72 otherwise. Enforcing the
 	// upper bound turns a confusing 500 into a clear 400.

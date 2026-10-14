@@ -10,8 +10,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// AccountHandler exposes the email-driven account flows: address verification
-// and password reset.
+// AccountHandler exposes the account flows that do not require the caller to
+// be the owner only via email: address verification, emailed password reset,
+// single-use recovery codes and the account's private admin note.
 type AccountHandler struct {
 	accountService *service.AccountService
 }
@@ -101,4 +102,69 @@ func (h *AccountHandler) ResetPassword(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"status": "ok"})
+}
+
+// ResetPasswordWithCode resets a password from a single-use recovery code
+// instead of an emailed link — the path for accounts without a working mailbox.
+func (h *AccountHandler) ResetPasswordWithCode(c fiber.Ctx) error {
+	var req struct {
+		Email       string `json:"email"`
+		Code        string `json:"code"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := c.Bind().Body(&req); err != nil {
+		return replyBadRequest(c, "Invalid request payload format")
+	}
+
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
+	switch {
+	case email == "" || strings.TrimSpace(req.Code) == "":
+		return replyBadRequest(c, "email and code are required")
+	case validation.EmailError(email) != "":
+		return replyBadRequest(c, "invalid email address")
+	case validation.PasswordError(req.NewPassword) != "":
+		return replyBadRequest(c, validation.PasswordError(req.NewPassword))
+	}
+
+	if err := h.accountService.ResetPasswordWithCode(c.Context(), email, req.Code, req.NewPassword); err != nil {
+		if errors.Is(err, service.ErrInvalidRecoveryCode) {
+			return replyErr(c, fiber.StatusBadRequest, "This recovery code is invalid or has already been used")
+		}
+		return svcErr(c, err, "Failed to reset password")
+	}
+
+	return c.JSON(fiber.Map{"status": "ok"})
+}
+
+// RecoveryCodes issues a fresh batch of single-use recovery codes for the
+// caller. The plaintext codes are returned exactly once; only hashes are kept,
+// and generating a new batch retires every previous code.
+func (h *AccountHandler) RecoveryCodes(c fiber.Ctx) error {
+	userID, err := currentUserID(c)
+	if err != nil {
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
+	}
+
+	codes, err := h.accountService.GenerateRecoveryCodes(c.Context(), userID)
+	if err != nil {
+		return replyInternal(c, err, "Failed to generate recovery codes")
+	}
+
+	return c.JSON(fiber.Map{"codes": codes})
+}
+
+// RecoveryCodeStatus reports how many unused recovery codes the caller has left.
+func (h *AccountHandler) RecoveryCodeStatus(c fiber.Ctx) error {
+	userID, err := currentUserID(c)
+	if err != nil {
+		return replyErr(c, fiber.StatusUnauthorized, err.Error())
+	}
+
+	remaining, err := h.accountService.RecoveryCodeStatus(c.Context(), userID)
+	if err != nil {
+		return replyInternal(c, err, "Failed to fetch recovery codes")
+	}
+
+	return c.JSON(fiber.Map{"remaining": remaining})
 }

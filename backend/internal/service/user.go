@@ -29,6 +29,7 @@ type UpdateProfileInput struct {
 	Email     *string
 	AboutMe   *string
 	AvatarURL *string
+	Note      *string
 }
 
 // AllowedRoles is the closed set of roles a channeler can hold. "moderator"
@@ -44,7 +45,7 @@ func NewUserService(db *gorm.DB) *UserService {
 	return &UserService{db: db}
 }
 
-func (s *UserService) Create(ctx context.Context, name, email, password string) (*models.User, error) {
+func (s *UserService) Create(ctx context.Context, name, email, password, note string) (*models.User, error) {
 	var count int64
 
 	if err := s.db.WithContext(ctx).Model(&models.User{}).Where("email = ?", email).Count(&count).Error; err != nil {
@@ -71,6 +72,7 @@ func (s *UserService) Create(ctx context.Context, name, email, password string) 
 		Email:    email,
 		Password: string(hashed),
 		Roles:    []string{"user"},
+		Note:     note,
 	}
 
 	if err := s.db.WithContext(ctx).Create(&user).Error; err != nil {
@@ -335,6 +337,9 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID uint, currentPas
 	if in.AvatarURL != nil {
 		user.AvatarUrl = *in.AvatarURL
 	}
+	if in.Note != nil {
+		user.Note = *in.Note
+	}
 
 	if err := s.db.WithContext(ctx).Save(user).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -415,6 +420,11 @@ func (s *UserService) Delete(ctx context.Context, userID uint) error {
 
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("DELETE FROM refresh_tokens WHERE user_id = ?", userID).Error; err != nil {
+			return err
+		}
+		// Verification, reset and recovery-code tokens all live in
+		// email_tokens and only make sense for an account that exists.
+		if err := tx.Exec("DELETE FROM email_tokens WHERE user_id = ?", userID).Error; err != nil {
 			return err
 		}
 		// notifications.actor_id references users(id), so these have to go

@@ -21,10 +21,11 @@ type AdminHandler struct {
 	userService    *service.UserService
 	statsService   *service.StatsService
 	sessionService *service.SessionService
+	accountService *service.AccountService
 }
 
-func NewAdminHandler(us *service.UserService, ss *service.StatsService, sessions *service.SessionService) *AdminHandler {
-	return &AdminHandler{userService: us, statsService: ss, sessionService: sessions}
+func NewAdminHandler(us *service.UserService, ss *service.StatsService, sessions *service.SessionService, as *service.AccountService) *AdminHandler {
+	return &AdminHandler{userService: us, statsService: ss, sessionService: sessions, accountService: as}
 }
 
 func (h *AdminHandler) ListUsers(c fiber.Ctx) error {
@@ -158,4 +159,25 @@ func (h *AdminHandler) DeleteUser(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"deleted": true})
+}
+
+// GenerateRecoveryCodes mints a fresh batch of recovery codes for another
+// account. The plaintext is returned once so the admin can hand it to a user
+// who lost access; the previous batch is retired.
+func (h *AdminHandler) GenerateRecoveryCodes(c fiber.Ctx) error {
+	targetID, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil {
+		return replyBadRequest(c, "User id must be a number")
+	}
+
+	if _, err := h.userService.GetByID(c.Context(), uint(targetID)); err != nil {
+		return svcErr(c, err, "Failed to find user")
+	}
+
+	codes, err := h.accountService.GenerateRecoveryCodes(c.Context(), uint(targetID))
+	if err != nil {
+		return replyInternal(c, err, "Failed to generate recovery codes")
+	}
+
+	return c.JSON(fiber.Map{"user_id": targetID, "codes": codes})
 }

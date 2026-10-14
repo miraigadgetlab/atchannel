@@ -22,6 +22,7 @@ type UpdateProfileRequest struct {
 	Email           *string `json:"email"`
 	AboutMe         *string `json:"about_me"`
 	AvatarURL       *string `json:"avatar_url"`
+	Note            *string `json:"note"`
 	CurrentPassword *string `json:"current_password"`
 }
 
@@ -122,8 +123,8 @@ func (h *ProfileHandler) Update(c fiber.Ctx) error {
 		return replyBadRequest(c, "Invalid request payload format")
 	}
 
-	if req.Name == nil && req.Email == nil && req.AboutMe == nil && req.AvatarURL == nil {
-		return replyBadRequest(c, "Nothing to update: provide name, email, about_me and/or avatar_url")
+	if req.Name == nil && req.Email == nil && req.AboutMe == nil && req.AvatarURL == nil && req.Note == nil {
+		return replyBadRequest(c, "Nothing to update: provide name, email, about_me, avatar_url and/or note")
 	}
 
 	if req.Name != nil {
@@ -144,6 +145,14 @@ func (h *ProfileHandler) Update(c fiber.Ctx) error {
 
 	if req.AboutMe != nil && validation.Length(*req.AboutMe) > maxAboutMeLength {
 		return replyBadRequest(c, "about_me must be at most 1000 characters long")
+	}
+
+	if req.Note != nil {
+		trimmed := strings.TrimSpace(*req.Note)
+		if msg := validation.TooLong("note", trimmed, validation.MaxNote); msg != "" {
+			return replyBadRequest(c, msg)
+		}
+		req.Note = &trimmed
 	}
 
 	if req.AvatarURL != nil {
@@ -169,6 +178,7 @@ func (h *ProfileHandler) Update(c fiber.Ctx) error {
 		Email:     req.Email,
 		AboutMe:   req.AboutMe,
 		AvatarURL: req.AvatarURL,
+		Note:      req.Note,
 	})
 	if err != nil {
 		switch {

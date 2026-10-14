@@ -21,6 +21,7 @@ func TestPostResponseHidesPrivateUserFields(t *testing.T) {
 			Email:    "alice@example.com",
 			Password: "bcrypt-hash",
 			Roles:    []string{"admin"},
+			Note:     "private admin note",
 		},
 	}
 
@@ -30,7 +31,7 @@ func TestPostResponseHidesPrivateUserFields(t *testing.T) {
 	}
 	body := string(raw)
 
-	for _, secret := range []string{"alice@example.com", "bcrypt-hash", `"email"`, `"password"`, `"roles"`} {
+	for _, secret := range []string{"alice@example.com", "bcrypt-hash", "private admin note", `"email"`, `"password"`, `"roles"`, `"note"`} {
 		if strings.Contains(body, secret) {
 			t.Errorf("serialized post leaks %q: %s", secret, body)
 		}
@@ -49,6 +50,7 @@ func TestChannelerResponseHidesPrivateUserFields(t *testing.T) {
 		Email:    "carol@example.com",
 		Password: "bcrypt-hash",
 		Roles:    []string{"moderator"},
+		Note:     "private admin note",
 	}
 
 	raw, err := json.Marshal(toChannelerResponse(user, 42))
@@ -57,7 +59,7 @@ func TestChannelerResponseHidesPrivateUserFields(t *testing.T) {
 	}
 	body := string(raw)
 
-	for _, secret := range []string{"carol@example.com", "bcrypt-hash", `"email"`, `"password"`, `"roles"`} {
+	for _, secret := range []string{"carol@example.com", "bcrypt-hash", "private admin note", `"email"`, `"password"`, `"roles"`, `"note"`} {
 		if strings.Contains(body, secret) {
 			t.Errorf("serialized channeler leaks %q: %s", secret, body)
 		}
@@ -77,6 +79,7 @@ func TestCommentResponseHidesPrivateUserFields(t *testing.T) {
 			Email:    "bob@example.com",
 			Password: "bcrypt-hash",
 			Roles:    []string{"admin"},
+			Note:     "private admin note",
 		},
 	}
 
@@ -86,7 +89,7 @@ func TestCommentResponseHidesPrivateUserFields(t *testing.T) {
 	}
 	body := string(raw)
 
-	for _, secret := range []string{"bob@example.com", "bcrypt-hash", `"email"`, `"password"`, `"roles"`} {
+	for _, secret := range []string{"bob@example.com", "bcrypt-hash", "private admin note", `"email"`, `"password"`, `"roles"`, `"note"`} {
 		if strings.Contains(body, secret) {
 			t.Errorf("serialized comment leaks %q: %s", secret, body)
 		}

@@ -10,6 +10,11 @@ type User struct {
 	Roles     StringArray `gorm:"type:text[];not null;default:'{}'" json:"roles"`
 	AboutMe   string      `json:"about_me"`
 	AvatarUrl string      `json:"avatar_url,omitempty"`
+	// Note is a private message the account can leave for the admins (for
+	// example, how they can be recognised if they ever lose access). It is
+	// returned to the owner and to admins only, and is deliberately absent
+	// from every public DTO (PublicUser, PublicProfile, ChannelerResponse).
+	Note string `json:"note"`
 	// EmailVerifiedAt is nil until the address is confirmed. It is advisory:
 	// nothing is gated on it yet, but clients use it to nudge the user.
 	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
@@ -20,10 +25,10 @@ type User struct {
 	BannedAt *time.Time `json:"banned_at,omitempty"`
 }
 
-// EmailToken is a single-use, hashed token for email verification or password
-// reset. Only the SHA-256 is stored, so a database leak cannot be replayed as
-// a verification or reset. Kind separates the two flows so a reset link can
-// never be replayed as a verification, or vice versa.
+// EmailToken is a single-use, hashed token for email verification, password
+// reset, or an account recovery code. Only the SHA-256 is stored, so a database
+// leak cannot be replayed. Kind separates the flows so a reset link can never
+// be replayed as a verification, or a recovery code as either.
 type EmailToken struct {
 	ID        uint       `gorm:"primaryKey" json:"-"`
 	UserID    uint       `gorm:"not null;index" json:"-"`

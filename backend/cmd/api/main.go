@@ -69,7 +69,7 @@ func main() {
 	channelHandler := handler.NewChannelHandler(channelService, postService)
 	postHandler := handler.NewPostHandler(postService, notificationService)
 	commentHandler := handler.NewCommentHandler(commentService)
-	adminHandler := handler.NewAdminHandler(userService, statsService, sessionService)
+	adminHandler := handler.NewAdminHandler(userService, statsService, sessionService, accountService)
 	profileHandler := handler.NewProfileHandler(userService, sessionService, cfg.UploadDir, cfg.MaxAvatarBytes)
 	accountHandler := handler.NewAccountHandler(accountService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
