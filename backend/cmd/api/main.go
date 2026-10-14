@@ -47,9 +47,9 @@ func main() {
 	sessionService := service.NewSessionService(db.DB)
 
 	// Transactional email: SMTP when configured, otherwise log-only so the
-	// verification and reset flows work in development.
+	// password reset flow works in development.
 	accountMailer := mailer.New(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.MailFrom)
-	accountService := service.NewAccountService(db.DB, userService, sessionService, accountMailer, cfg.AppBaseURL, cfg.VerifyTokenTTL, cfg.ResetTokenTTL)
+	accountService := service.NewAccountService(db.DB, userService, sessionService, accountMailer, cfg.AppBaseURL, cfg.ResetTokenTTL)
 
 	// Dead refresh tokens are pruned on a schedule: Record only clears the
 	// rows of users who log in again, so abandoned accounts would otherwise
@@ -65,7 +65,7 @@ func main() {
 	}
 
 	accountLimiter := middleware.NewAccountLimiter(cfg.AccountLockMax, cfg.AccountLockWindow)
-	authHandler := handler.NewAuthHandler(tokenService, userService, sessionService, accountService, accountLimiter)
+	authHandler := handler.NewAuthHandler(tokenService, userService, sessionService, accountLimiter)
 	channelHandler := handler.NewChannelHandler(channelService, postService)
 	postHandler := handler.NewPostHandler(postService, notificationService)
 	commentHandler := handler.NewCommentHandler(commentService)

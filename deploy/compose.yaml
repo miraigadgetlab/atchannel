@@ -58,7 +58,6 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - MAIL_FROM=${MAIL_FROM:-no-reply@atchannel.local}
       - APP_BASE_URL=${APP_BASE_URL:-http://localhost:5173}
-      - VERIFY_TOKEN_TTL=${VERIFY_TOKEN_TTL:-24h}
       - RESET_TOKEN_TTL=${RESET_TOKEN_TTL:-1h}
       # avatar uploads: persisted on a named volume so they survive restarts
       - UPLOAD_DIR=${UPLOAD_DIR:-/app/uploads}

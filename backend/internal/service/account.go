@@ -19,10 +19,9 @@ import (
 )
 
 // Email token kinds. Keeping them distinct means a reset link cannot be
-// replayed as a verification and vice versa. Recovery codes share the same
+// replayed as a recovery code and vice versa. Recovery codes share the same
 // storage as emailed tokens but identify the account on their own.
 const (
-	TokenKindVerify   = "verify"
 	TokenKindReset    = "reset"
 	TokenKindRecovery = "recovery"
 )
@@ -35,22 +34,20 @@ const RecoveryCodeCount = 10
 const recoveryAlphabet = "23456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 var (
-	ErrInvalidEmailToken    = errors.New("email token is invalid or has expired")
-	ErrEmailAlreadyVerified = errors.New("email is already verified")
-	ErrInvalidRecoveryCode  = errors.New("recovery code is invalid or has already been used")
+	ErrInvalidEmailToken   = errors.New("email token is invalid or has expired")
+	ErrInvalidRecoveryCode = errors.New("recovery code is invalid or has already been used")
 )
 
-// AccountService owns the account's credential flows: address verification,
-// password reset (by emailed link or single-use recovery code), and the
-// issuing and consumption of those tokens. Only hashes are ever stored.
+// AccountService owns the account's credential flows: password reset (by
+// emailed link or single-use recovery code) and the issuing and consumption of
+// those tokens. Only hashes are ever stored.
 type AccountService struct {
-	db        *gorm.DB
-	users     *UserService
-	sessions  *SessionService
-	mailer    mailer.Mailer
-	baseURL   string
-	verifyTTL time.Duration
-	resetTTL  time.Duration
+	db       *gorm.DB
+	users    *UserService
+	sessions *SessionService
+	mailer   mailer.Mailer
+	baseURL  string
+	resetTTL time.Duration
 }
 
 func NewAccountService(
@@ -59,58 +56,16 @@ func NewAccountService(
 	sessions *SessionService,
 	m mailer.Mailer,
 	baseURL string,
-	verifyTTL, resetTTL time.Duration,
+	resetTTL time.Duration,
 ) *AccountService {
 	return &AccountService{
-		db:        db,
-		users:     users,
-		sessions:  sessions,
-		mailer:    m,
-		baseURL:   baseURL,
-		verifyTTL: verifyTTL,
-		resetTTL:  resetTTL,
+		db:       db,
+		users:    users,
+		sessions: sessions,
+		mailer:   m,
+		baseURL:  baseURL,
+		resetTTL: resetTTL,
 	}
-}
-
-// SendVerification issues a fresh verification token and emails the link. The
-// caller gets an error only when the token cannot be stored; a failure to
-// deliver is logged, not surfaced, because the account already exists and the
-// user can ask for another link.
-func (s *AccountService) SendVerification(ctx context.Context, user *models.User) error {
-	raw, err := s.issueToken(ctx, user.ID, TokenKindVerify, s.verifyTTL)
-	if err != nil {
-		return err
-	}
-
-	s.deliver(user.Email, "Verify your email address", fmt.Sprintf(
-		"Welcome to atchannel!\n\nConfirm this email address by visiting:\n%s/verify-email?token=%s\n\nThis link expires in %s.\n",
-		s.baseURL, raw, humanize(s.verifyTTL),
-	))
-	return nil
-}
-
-// ResendVerification re-sends the confirmation link to an existing account.
-func (s *AccountService) ResendVerification(ctx context.Context, userID uint) error {
-	user, err := s.users.GetByID(ctx, userID)
-	if err != nil {
-		return err
-	}
-	if user.EmailVerifiedAt != nil {
-		return ErrEmailAlreadyVerified
-	}
-	return s.SendVerification(ctx, user)
-}
-
-// VerifyEmail consumes a verification token and marks the account verified.
-func (s *AccountService) VerifyEmail(ctx context.Context, rawToken string) error {
-	userID, err := s.consumeToken(ctx, rawToken, TokenKindVerify)
-	if err != nil {
-		return err
-	}
-
-	return s.db.WithContext(ctx).Model(&models.User{}).
-		Where("id = ?", userID).
-		Update("email_verified_at", time.Now()).Error
 }
 
 // RequestPasswordReset emails a reset link when the address belongs to an

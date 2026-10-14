@@ -11,52 +11,14 @@ import (
 )
 
 // AccountHandler exposes the account flows that do not require the caller to
-// be the owner only via email: address verification, emailed password reset,
-// single-use recovery codes and the account's private admin note.
+// be the owner only via email: emailed password reset, single-use recovery
+// codes and the account's private admin note.
 type AccountHandler struct {
 	accountService *service.AccountService
 }
 
 func NewAccountHandler(as *service.AccountService) *AccountHandler {
 	return &AccountHandler{accountService: as}
-}
-
-// VerifyEmail confirms an address from a token in the email link.
-func (h *AccountHandler) VerifyEmail(c fiber.Ctx) error {
-	var req struct {
-		Token string `json:"token"`
-	}
-	if err := c.Bind().Body(&req); err != nil || strings.TrimSpace(req.Token) == "" {
-		return replyBadRequest(c, "token is required")
-	}
-
-	if err := h.accountService.VerifyEmail(c.Context(), req.Token); err != nil {
-		if errors.Is(err, service.ErrInvalidEmailToken) {
-			return replyErr(c, fiber.StatusBadRequest, "This verification link is invalid or has expired")
-		}
-		return svcErr(c, err, "Failed to verify email")
-	}
-
-	return c.JSON(fiber.Map{"verified": true})
-}
-
-// ResendVerification re-sends the confirmation link for the caller's account.
-func (h *AccountHandler) ResendVerification(c fiber.Ctx) error {
-	userID, err := currentUserID(c)
-	if err != nil {
-		return replyErr(c, fiber.StatusUnauthorized, err.Error())
-	}
-
-	if err := h.accountService.ResendVerification(c.Context(), userID); err != nil {
-		switch {
-		case errors.Is(err, service.ErrEmailAlreadyVerified):
-			return replyErr(c, fiber.StatusConflict, "Email is already verified")
-		default:
-			return svcErr(c, err, "Failed to send verification email")
-		}
-	}
-
-	return c.JSON(fiber.Map{"sent": true})
 }
 
 // ForgotPassword always answers the same way, whether or not the address is

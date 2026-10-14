@@ -46,11 +46,10 @@ type Config struct {
 	SMTPUsername string
 	SMTPPassword string
 	MailFrom     string
-	// AppBaseURL prefixes the verification/reset links put in those emails.
+	// AppBaseURL prefixes the reset link placed in that email.
 	AppBaseURL string
-	// Token lifetimes for the email flows.
-	VerifyTokenTTL time.Duration
-	ResetTokenTTL  time.Duration
+	// ResetTokenTTL is how long a password reset link stays valid.
+	ResetTokenTTL time.Duration
 
 	// Avatar uploads are stored on local disk under UploadDir and served back
 	// at /uploads/... Keep MaxAvatarBytes well under the HTTP body limit:
@@ -94,7 +93,6 @@ func LoadConfig() *Config {
 		SMTPPassword:      os.Getenv("SMTP_PASSWORD"),
 		MailFrom:          envString("MAIL_FROM", "no-reply@atchannel.local"),
 		AppBaseURL:        strings.TrimSuffix(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
-		VerifyTokenTTL:    envDuration("VERIFY_TOKEN_TTL", 24*time.Hour),
 		ResetTokenTTL:     envDuration("RESET_TOKEN_TTL", time.Hour),
 		UploadDir:         envString("UPLOAD_DIR", "./uploads"),
 		MaxAvatarBytes:    envInt64("MAX_AVATAR_BYTES", 1<<20),

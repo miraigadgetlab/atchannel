@@ -1,4 +1,4 @@
-// Package mailer delivers transactional email (verification, password reset).
+// Package mailer delivers transactional email (password reset).
 //
 // The default Mailer writes the message to the log so development and tests
 // work end to end without a mail server. Set SMTP_HOST to switch to real

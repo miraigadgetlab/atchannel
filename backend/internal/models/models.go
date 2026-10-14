@@ -14,21 +14,18 @@ type User struct {
 	// example, how they can be recognised if they ever lose access). It is
 	// returned to the owner and to admins only, and is deliberately absent
 	// from every public DTO (PublicUser, PublicProfile, ChannelerResponse).
-	Note string `json:"note"`
-	// EmailVerifiedAt is nil until the address is confirmed. It is advisory:
-	// nothing is gated on it yet, but clients use it to nudge the user.
-	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `gorm:"not null" json:"updated_at"`
+	Note      string    `json:"note"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `gorm:"not null" json:"updated_at"`
 	// BannedAt is set when an admin suspends the account. Banned users cannot
 	// log in; existing sessions are revoked at ban time.
 	BannedAt *time.Time `json:"banned_at,omitempty"`
 }
 
-// EmailToken is a single-use, hashed token for email verification, password
-// reset, or an account recovery code. Only the SHA-256 is stored, so a database
-// leak cannot be replayed. Kind separates the flows so a reset link can never
-// be replayed as a verification, or a recovery code as either.
+// EmailToken is a single-use, hashed token for a password reset link or an
+// account recovery code. Only the SHA-256 is stored, so a database leak cannot
+// be replayed. Kind separates the flows, so a reset link can never be replayed
+// as a recovery code, or vice versa.
 type EmailToken struct {
 	ID        uint       `gorm:"primaryKey" json:"-"`
 	UserID    uint       `gorm:"not null;index" json:"-"`

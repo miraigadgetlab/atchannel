@@ -116,6 +116,10 @@ func Migrate() {
 	ensureSearchIndexes()
 	ensureUserNameIndex()
 
+	// Email verification was removed from the product; drop its now-unused
+	// column so the schema matches the models exactly.
+	dropColumn("users", "email_verified_at")
+
 	err := DB.AutoMigrate(
 		&models.User{},
 		&models.Channel{},
@@ -265,6 +269,21 @@ func ensureUserNameIndex() {
 
 	if err := DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_name_lower ON users (lower(name))").Error; err != nil {
 		log.Printf("warning: could not create case-insensitive unique index on users.name: %v", err)
+	}
+}
+
+// dropColumn removes a column that no longer maps to any model field, so the
+// schema does not keep dead data around. A missing table or column is a no-op,
+// which makes it safe to run on every boot and on a fresh install.
+func dropColumn(table, column string) {
+	if !tableExists(table) || !columnExists(table, column) {
+		return
+	}
+
+	log.Printf("migrating: dropping %s.%s", table, column)
+	stmt := fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", table, column)
+	if err := DB.Exec(stmt).Error; err != nil {
+		log.Fatalf("migration error (drop %s.%s): %v", table, column, err)
 	}
 }
 

@@ -422,8 +422,8 @@ func (s *UserService) Delete(ctx context.Context, userID uint) error {
 		if err := tx.Exec("DELETE FROM refresh_tokens WHERE user_id = ?", userID).Error; err != nil {
 			return err
 		}
-		// Verification, reset and recovery-code tokens all live in
-		// email_tokens and only make sense for an account that exists.
+		// Reset and recovery-code tokens all live in email_tokens and only
+		// make sense for an account that exists.
 		if err := tx.Exec("DELETE FROM email_tokens WHERE user_id = ?", userID).Error; err != nil {
 			return err
 		}
