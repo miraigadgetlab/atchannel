@@ -35,10 +35,6 @@ export const authApi = {
     return request('/auth/logout-all', { method: 'POST' })
   },
 
-  verifyEmail(token: string): Promise<{ verified: boolean }> {
-    return request('/auth/verify-email', { method: 'POST', body: { token }, auth: false })
-  },
-
   forgotPassword(email: string): Promise<{ status: string }> {
     return request('/auth/forgot-password', { method: 'POST', body: { email }, auth: false })
   },

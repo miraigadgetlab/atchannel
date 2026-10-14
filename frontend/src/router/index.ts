@@ -54,12 +54,6 @@ const router = createRouter({
       meta: { guestOnly: true, title: 'Reset password' },
     },
     {
-      path: '/verify-email',
-      name: 'verify-email',
-      component: () => import('@/views/VerifyEmailView.vue'),
-      meta: { title: 'Verify email' },
-    },
-    {
       path: '/channels',
       name: 'channels',
       component: () => import('@/views/ChannelsView.vue'),

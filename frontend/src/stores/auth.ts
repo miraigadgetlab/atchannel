@@ -25,7 +25,6 @@ export const useAuthStore = defineStore('auth', () => {
   const canModerate = computed(
     () => roles.value.includes('admin') || roles.value.includes('moderator'),
   )
-  const isEmailVerified = computed(() => user.value?.email_verified_at != null)
 
   function clearSession(): void {
     tokenStore.clear()
@@ -117,10 +116,6 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value
   }
 
-  function resendVerification(): Promise<{ sent: boolean }> {
-    return usersApi.resendVerification()
-  }
-
   // The HTTP client hides token refreshes, so a failed session surfaces here as
   // an event. Dropping the user object flips every guard to "signed out".
   if (typeof window !== 'undefined') {
@@ -136,7 +131,6 @@ export const useAuthStore = defineStore('auth', () => {
     roles,
     isAdmin,
     canModerate,
-    isEmailVerified,
     initialize,
     fetchMe,
     login,
@@ -146,7 +140,6 @@ export const useAuthStore = defineStore('auth', () => {
     updateProfile,
     changePassword,
     uploadAvatar,
-    resendVerification,
     clearSession,
   }
 })

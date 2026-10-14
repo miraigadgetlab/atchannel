@@ -35,10 +35,6 @@ export const usersApi = {
     })
   },
 
-  resendVerification(): Promise<{ sent: boolean }> {
-    return request('/me/verify-email', { method: 'POST' })
-  },
-
   /** How many single-use recovery codes the caller has left. */
   recoveryCodeStatus(): Promise<{ remaining: number }> {
     return request('/me/recovery-codes')

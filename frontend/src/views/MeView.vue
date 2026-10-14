@@ -116,20 +116,6 @@ async function signOutEverywhere(): Promise<void> {
   }
 }
 
-// ---- Email verification ---------------------------------------------------
-const resending = ref(false)
-const resent = ref(false)
-
-async function resendVerification(): Promise<void> {
-  resending.value = true
-  try {
-    await auth.resendVerification()
-    resent.value = true
-  } finally {
-    resending.value = false
-  }
-}
-
 // ---- Recovery codes -------------------------------------------------------
 const codesRemaining = ref<number | null>(null)
 const recoveryLoading = ref(false)
@@ -295,27 +281,6 @@ onMounted(loadRecoveryStatus)
           </RouterLink>
         </div>
       </form>
-    </section>
-
-    <!-- Email verification -->
-    <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 class="mb-2 text-lg font-semibold text-slate-900">Email verification</h2>
-      <p v-if="auth.isEmailVerified" class="text-sm text-emerald-700">
-        Your email address is verified.
-      </p>
-      <div v-else class="flex flex-wrap items-center gap-3">
-        <p class="text-sm text-slate-600">Your email address is not verified yet.</p>
-        <button
-          type="button"
-          class="text-sm font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-60"
-          :disabled="resending || resent"
-          @click="resendVerification"
-        >
-          {{
-            resent ? 'Verification email sent' : resending ? 'Sending…' : 'Send verification link'
-          }}
-        </button>
-      </div>
     </section>
 
     <!-- Recovery codes -->
