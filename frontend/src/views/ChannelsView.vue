@@ -81,29 +81,22 @@ onMounted(load)
 
 <template>
   <div>
-    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-900">Channels</h1>
-        <p class="text-sm text-slate-500">Topic-based rooms for conversations.</p>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
-        <input
-          v-model="search"
-          type="search"
-          placeholder="Search channels…"
-          class="w-44 rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-          @keyup.enter="applySearch"
-        />
-        <button
-          v-if="auth.isAuthenticated"
-          type="button"
-          class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
-          @click="showForm = !showForm"
-        >
-          {{ showForm ? 'Cancel' : 'New channel' }}
-        </button>
-      </div>
+    <div class="mb-6 flex flex-wrap items-center gap-2">
+      <input
+        v-model="search"
+        type="search"
+        placeholder="Search channels…"
+        class="w-44 rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+        @keyup.enter="applySearch"
+      />
+      <button
+        v-if="auth.isAuthenticated"
+        type="button"
+        class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
+        @click="showForm = !showForm"
+      >
+        {{ showForm ? 'Cancel' : 'New channel' }}
+      </button>
     </div>
 
     <form

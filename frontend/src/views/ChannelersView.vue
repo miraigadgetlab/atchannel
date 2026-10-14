@@ -44,11 +44,6 @@ onMounted(load)
 
 <template>
   <div>
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold text-slate-900">Channelers</h1>
-      <p class="text-sm text-slate-500">The most active posters, ranked by post count.</p>
-    </div>
-
     <AppSpinner v-if="loading" />
     <p v-else-if="error" class="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">
       {{ error }}

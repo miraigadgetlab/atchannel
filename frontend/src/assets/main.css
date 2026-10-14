@@ -229,6 +229,15 @@ body::after {
 }
 
 /*
+ * Active nav link: the site's accent red, so the section you are in reads at a
+ * glance. Unlayered, so it also wins over the link's layered
+ * `hover:text-slate-900` (the link stays red even while hovered).
+ */
+.nav-active {
+  color: #c96f6f;
+}
+
+/*
  * The nav brand keeps the bio site's blackletter + candle-flicker identity.
  * `.brand` sets type only; its accent color still comes from the
  * `text-indigo-700` utility above.

@@ -73,36 +73,29 @@ onMounted(load)
 
 <template>
   <div>
-    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-900">Feed</h1>
-        <p class="text-sm text-slate-500">The latest conversations across every channel.</p>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
-        <input
-          v-model="search"
-          type="search"
-          placeholder="Search…"
-          class="w-40 rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-          @keyup.enter="applyFilters"
-        />
-        <select
-          v-model="sort"
-          class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
-          @change="applyFilters"
-        >
-          <option value="new">Newest</option>
-          <option value="old">Oldest</option>
-          <option value="top">Most liked</option>
-        </select>
-        <RouterLink
-          :to="{ name: 'post-new' }"
-          class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
-        >
-          New post
-        </RouterLink>
-      </div>
+    <div class="mb-6 flex flex-wrap items-center gap-2">
+      <input
+        v-model="search"
+        type="search"
+        placeholder="Search…"
+        class="w-40 rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+        @keyup.enter="applyFilters"
+      />
+      <select
+        v-model="sort"
+        class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+        @change="applyFilters"
+      >
+        <option value="new">Newest</option>
+        <option value="old">Oldest</option>
+        <option value="top">Most liked</option>
+      </select>
+      <RouterLink
+        :to="{ name: 'post-new' }"
+        class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
+      >
+        New post
+      </RouterLink>
     </div>
 
     <AppSpinner v-if="loading" />
