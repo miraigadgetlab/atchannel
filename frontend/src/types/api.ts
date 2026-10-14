@@ -44,6 +44,15 @@ export interface PublicProfile {
   comment_count: number
 }
 
+/** One entry of the public channeler leaderboard (GET /users). */
+export interface Channeler {
+  id: number
+  name: string
+  about_me: string
+  avatar_url?: string
+  post_count: number
+}
+
 export interface Channel {
   id: number
   name: string
@@ -69,6 +78,7 @@ export interface ChannelDetail {
 export interface Post {
   id: number
   channel_id: number
+  channel_name: string
   title: string
   content: string
   user_id: number

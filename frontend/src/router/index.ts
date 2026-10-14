@@ -61,6 +61,11 @@ const router = createRouter({
       component: () => import('@/views/ChannelsView.vue'),
     },
     {
+      path: '/channelers',
+      name: 'channelers',
+      component: () => import('@/views/ChannelersView.vue'),
+    },
+    {
       path: '/channels/:id',
       name: 'channel',
       component: () => import('@/views/ChannelDetailView.vue'),

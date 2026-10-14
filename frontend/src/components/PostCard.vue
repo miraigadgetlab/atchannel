@@ -76,7 +76,7 @@ async function toggleLike(): Promise<void> {
             :to="{ name: 'channel', params: { id: post.channel_id } }"
             class="text-xs font-medium text-indigo-600 hover:text-indigo-700"
           >
-            #{{ post.channel_id }}
+            #{{ post.channel_name || post.channel_id }}
           </RouterLink>
         </div>
 

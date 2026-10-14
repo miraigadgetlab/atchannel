@@ -1,14 +1,76 @@
 @import 'tailwindcss';
 
 /*
- * Tailwind v4 reads `@theme` to generate design tokens as CSS variables and
- * utilities. Keeping the font stack here means components can rely on
- * `font-sans` without repeating it.
+ * Theme ported from kosero.github.io: near-black background (#050505), Courier
+ * mono type, dark-red accent (#993333), #222 hairline borders, scanlines,
+ * film grain, a flickering blackletter brand — and no border radius anywhere.
+ *
+ * Like the source site, the palette lives in CSS variables; here the light
+ * Tailwind tokens are re-pointed at those values so every existing utility
+ * (`bg-slate-100`, `border-slate-300`, `text-slate-700`…) flips consistently
+ * without touching the components.
  */
+
+@font-face {
+  font-family: 'Chomsky';
+  src: url('/fonts/Chomsky.otf') format('opentype');
+  font-display: swap;
+}
+
 @theme {
-  --font-sans:
-    Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, sans-serif;
+  --font-sans: 'JetBrains Mono', 'Courier New', Courier, monospace;
+  --font-mono: 'JetBrains Mono', 'Courier New', Courier, monospace;
+  --font-gothic: 'Chomsky', serif;
+
+  /*
+   * ASCII border tile from the bio site: a 27x27 SVG of `+ - |` glyphs
+   * (muted gray by default, accent red for the hover variant) fed to
+   * border-image. The 9 slice cuts the tile into corners + edge middles.
+   */
+  --ascii-border: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='27' height='27'%3E%3Cg fill='%23747474' font-family='monospace' font-size='15' text-anchor='middle' dominant-baseline='central'%3E%3Ctext x='4.5' y='4.5'%3E+%3C/text%3E%3Ctext x='13.5' y='4.5'%3E-%3C/text%3E%3Ctext x='22.5' y='4.5'%3E+%3C/text%3E%3Ctext x='4.5' y='13.5'%3E|%3C/text%3E%3Ctext x='22.5' y='13.5'%3E|%3C/text%3E%3Ctext x='4.5' y='22.5'%3E+%3C/text%3E%3Ctext x='13.5' y='22.5'%3E-%3C/text%3E%3Ctext x='22.5' y='22.5'%3E+%3C/text%3E%3C/g%3E%3C/svg%3E");
+  --ascii-border-accent: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='27' height='27'%3E%3Cg fill='%23993333' font-family='monospace' font-size='15' text-anchor='middle' dominant-baseline='central'%3E%3Ctext x='4.5' y='4.5'%3E+%3C/text%3E%3Ctext x='13.5' y='4.5'%3E-%3C/text%3E%3Ctext x='22.5' y='4.5'%3E+%3C/text%3E%3Ctext x='4.5' y='13.5'%3E|%3C/text%3E%3Ctext x='22.5' y='13.5'%3E|%3C/text%3E%3Ctext x='4.5' y='22.5'%3E+%3C/text%3E%3Ctext x='13.5' y='22.5'%3E-%3C/text%3E%3Ctext x='22.5' y='22.5'%3E+%3C/text%3E%3C/g%3E%3C/svg%3E");
+
+  /* slate: hairlines and surfaces (50–300) -> text steps (400–900) */
+  --color-slate-50: #0d0d0d; /* hover surface */
+  --color-slate-100: #111111; /* muted surface, badges */
+  --color-slate-200: #222222; /* card borders, dividers */
+  --color-slate-300: #2e2e2e; /* input borders */
+  --color-slate-400: #747474; /* muted text */
+  --color-slate-500: #a0a0a0; /* body text */
+  --color-slate-600: #b8b8b8;
+  --color-slate-700: #d0d0d0; /* light text */
+  --color-slate-800: #e0e0e0;
+  --color-slate-900: #ededed; /* headings */
+
+  /* accent (was indigo): the site's dark red */
+  --color-indigo-50: #150a0a;
+  --color-indigo-100: #241010;
+  --color-indigo-200: #4d2222; /* rings */
+  --color-indigo-300: #993333; /* hover borders */
+  --color-indigo-500: #993333; /* focus rings */
+  --color-indigo-600: #993333; /* primary buttons */
+  --color-indigo-700: #7d2929; /* button hover */
+
+  /* rose: destructive text + alert boxes */
+  --color-rose-50: #150909;
+  --color-rose-100: #1d0b0b;
+  --color-rose-200: #4a1f1f;
+  --color-rose-500: #993333; /* notification badge */
+  --color-rose-600: #d47373;
+  --color-rose-700: #e8a0a0;
+
+  /* emerald: success notices */
+  --color-emerald-50: #0a130e;
+  --color-emerald-200: #24402f;
+  --color-emerald-700: #8fbf9f;
+  --color-emerald-800: #b3d4bf;
+
+  /* amber: warnings, pinned badges */
+  --color-amber-50: #14100a;
+  --color-amber-100: #1d170d;
+  --color-amber-200: #4a3d20;
+  --color-amber-700: #d0a45e;
+  --color-amber-800: #e3c48a;
 }
 
 html,
@@ -19,11 +81,210 @@ body,
 
 body {
   margin: 0;
-  font-family: var(--font-sans);
-  background-color: #f8fafc;
-  color: #0f172a;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.4;
+  background-color: #050505;
+  /* faint CRT scanlines, same as the bio site */
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.1) 2px,
+    rgba(0, 0, 0, 0.1) 4px
+  );
+  color: #a0a0a0;
+  color-scheme: dark; /* native controls + scrollbars follow the theme */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* FILM GRAIN OVERLAY (body::after replaces the bio site's .grain div) */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.1 0'/%3E%3C/filter%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23w)'/%3E%3Crect width='300' height='300' filter='url(%23b)'/%3E%3C/svg%3E");
+  animation: grain-shift 1.1s steps(8) infinite;
+}
+
+@keyframes grain-shift {
+  0%,
+  100% {
+    background-position: 0 0;
+  }
+  12.5% {
+    background-position: -300px 150px;
+  }
+  25% {
+    background-position: 150px -300px;
+  }
+  37.5% {
+    background-position: 150px 300px;
+  }
+  50% {
+    background-position: -300px -150px;
+  }
+  62.5% {
+    background-position: 300px 150px;
+  }
+  75% {
+    background-position: -150px 300px;
+  }
+  87.5% {
+    background-position: 240px -240px;
+  }
+}
+
+/*
+ * No border radius anywhere: cards, inputs, buttons, badges, avatars and the
+ * spinner are all squared off. Unlayered CSS outranks Tailwind's layered
+ * utilities, so this wins regardless of which `rounded-*` class is used.
+ */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* Custom scrollbar, straight from the bio site */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #050505;
+  border-left: 1px solid #222222;
+}
+::-webkit-scrollbar-thumb {
+  background: #222222;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #993333;
+}
+
+::selection {
+  background: #993333;
+  color: #ededed;
+}
+
+/*
+ * Surfaces built on `bg-white` (cards, dropdowns) become the dark panel
+ * color (#0a0a0a, like the bio site's hero panels) and wear the site's
+ * ASCII border: an 8px transparent border filled by the `+ - |` SVG tile
+ * through border-image. `--color-white` itself must stay white because
+ * `text-white` is used for labels on accent buttons, so the `bg-white`
+ * utility is overridden directly (unlayered -> it beats the layered
+ * utility, including the 1px `border` classes on the cards). Nav and
+ * footer keep the plain hairline, exactly like the source site.
+ */
+.bg-white {
+  background-color: #0a0a0a;
+  border: 8px solid transparent;
+  border-image: var(--ascii-border) 9 / 8px round;
+}
+
+.bg-white\/90 {
+  background-color: rgb(5 5 5 / 0.9);
+}
+
+/*
+ * Channel cards signal hover by swapping their ASCII frame to the accent
+ * red tile (they used `hover:border-indigo-300`, which border-image would
+ * otherwise hide).
+ */
+.bg-white.hover\:border-indigo-300:hover {
+  border-image: var(--ascii-border-accent) 9 / 8px round;
+}
+
+/*
+ * Boxed alerts (errors, success notices) get the same ASCII frame — the
+ * source site frames its quote/info boxes the same way. Small badges
+ * (`bg-slate-100` etc.) intentionally stay out of this.
+ */
+.bg-rose-50,
+.bg-emerald-50 {
+  border: 8px solid transparent;
+  border-image: var(--ascii-border) 9 / 8px round;
+}
+
+/*
+ * Accent *text* (links, avatar initials) has to brighten up on a dark
+ * background, but `bg-indigo-600`/`hover:bg-indigo-700` must stay the dark
+ * red for white labels. The scale token is shared by both, so text usages
+ * are overridden here instead. Hover rules are included because unlayered
+ * CSS would otherwise beat their layered `hover:` variants.
+ */
+.text-indigo-600 {
+  color: #c96f6f;
+}
+
+.text-indigo-700 {
+  color: #e09595;
+}
+
+.hover\:text-indigo-700:hover {
+  color: #e09595;
+}
+
+/*
+ * The nav brand keeps the bio site's blackletter + candle-flicker identity.
+ * `.brand` sets type only; its accent color still comes from the
+ * `text-indigo-700` utility above.
+ */
+@keyframes candle-flicker {
+  0%,
+  100% {
+    opacity: 1;
+    text-shadow:
+      0 0 5px rgba(153, 51, 51, 0.4),
+      0 0 12px rgba(153, 51, 51, 0.15);
+  }
+  3% {
+    transform: translateX(0.5px);
+    opacity: 0.9;
+    text-shadow: 0 0 9px rgba(153, 51, 51, 0.6);
+  }
+  4% {
+    transform: translateX(-0.5px);
+    opacity: 1;
+  }
+  27% {
+    opacity: 0.72;
+  }
+  28% {
+    opacity: 0.95;
+  }
+  29% {
+    opacity: 0.85;
+  }
+  30% {
+    opacity: 1;
+  }
+  59% {
+    transform: translateX(0.3px);
+    opacity: 0.95;
+  }
+  60% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  85% {
+    text-shadow: 0 0 7px rgba(153, 51, 51, 0.5);
+  }
+  87% {
+    text-shadow: 0 0 4px rgba(153, 51, 51, 0.3);
+  }
+}
+
+.brand {
+  font-family: var(--font-gothic);
+  font-size: 22px;
+  font-weight: normal;
+  letter-spacing: 0;
+  animation: candle-flicker 4.6s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 /* Long post bodies keep their line breaks without enabling full HTML. */

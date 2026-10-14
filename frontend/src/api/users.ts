@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { PublicProfile, User } from '@/types/api'
+import type { Channeler, PageParams, Paginated, PublicProfile, User } from '@/types/api'
 
 /** Only the provided fields are sent; the backend treats omitted as "leave". */
 export interface UpdateProfileInput {
@@ -45,5 +45,12 @@ export const usersApi = {
 
   getProfile(id: number | string): Promise<PublicProfile> {
     return request(`/users/${id}`)
+  },
+
+  /** Public leaderboard: accounts ranked by post count, most active first. */
+  listChannelers(params: PageParams = {}): Promise<Paginated<Channeler>> {
+    return request('/users', {
+      query: { limit: params.limit, offset: params.offset },
+    })
   },
 }

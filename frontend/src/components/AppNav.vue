@@ -40,13 +40,14 @@ async function logout(): Promise<void> {
 <template>
   <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
     <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
-      <RouterLink to="/" class="text-lg font-bold tracking-tight text-indigo-700">
+      <RouterLink to="/" class="brand text-indigo-700">
         atchannel
       </RouterLink>
 
       <nav class="flex items-center gap-3 text-sm font-medium text-slate-600">
         <RouterLink to="/" class="hover:text-slate-900">Feed</RouterLink>
         <RouterLink to="/channels" class="hover:text-slate-900">Channels</RouterLink>
+        <RouterLink to="/channelers" class="hover:text-slate-900">Channelers</RouterLink>
       </nav>
 
       <form

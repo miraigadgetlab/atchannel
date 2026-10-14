@@ -26,7 +26,7 @@ async function resendVerification(): Promise<void> {
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-slate-50">
+  <div class="flex min-h-screen flex-col">
     <AppNav />
 
     <div
