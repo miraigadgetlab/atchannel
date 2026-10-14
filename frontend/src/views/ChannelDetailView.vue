@@ -25,12 +25,8 @@ const loading = ref(true)
 const error = ref('')
 const notFound = ref(false)
 
-const canManage = computed(() => {
-  if (!channel.value || !auth.user) {
-    return false
-  }
-  return auth.canModerate || channel.value.created_by === auth.user.id
-})
+// Channels are admin-managed: only an admin sees the edit/delete controls.
+const canManage = computed(() => auth.isAdmin)
 
 const editing = ref(false)
 const editForm = ref({ name: '', title: '', description: '' })
