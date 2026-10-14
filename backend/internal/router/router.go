@@ -128,10 +128,6 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	protected.Post("/me/recovery-codes", deps.AccountHandler.RecoveryCodes)
 	protected.Post("/me/avatar", writeLimit, deps.ProfileHandler.UploadAvatar)
 	protected.Post("/auth/logout-all", deps.AuthHandler.LogoutAll)
-	protected.Post("/channels", writeLimit, deps.ChannelHandler.Create)
-	protected.Put("/channels/:id", writeLimit, deps.ChannelHandler.Update)
-	// Creator or admin — the handler enforces ownership (see ChannelHandler.Delete).
-	protected.Delete("/channels/:id", writeLimit, deps.ChannelHandler.Delete)
 	protected.Post("/posts", writeLimit, deps.PostHandler.Create)
 	protected.Put("/posts/:id", writeLimit, deps.PostHandler.Update)
 	protected.Delete("/posts/:id", writeLimit, deps.PostHandler.Delete)
@@ -153,6 +149,12 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	admin.Put("/admin/users/:id/ban", deps.AdminHandler.SetBanned)
 	admin.Delete("/admin/users/:id", deps.AdminHandler.DeleteUser)
 	admin.Post("/admin/users/:id/recovery-codes", deps.AdminHandler.GenerateRecoveryCodes)
+
+	// Channels are admin-managed: only admins open, edit or take them down.
+	// Anyone signed in may still post in a channel (see /posts above).
+	admin.Post("/channels", writeLimit, deps.ChannelHandler.Create)
+	admin.Put("/channels/:id", writeLimit, deps.ChannelHandler.Update)
+	admin.Delete("/channels/:id", writeLimit, deps.ChannelHandler.Delete)
 
 	// Moderation: admins and moderators may pin/lock threads.
 	mod := api.Group("", authGuard, middleware.RequireRole("admin", "moderator"))

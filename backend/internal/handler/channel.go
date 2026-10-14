@@ -160,8 +160,8 @@ func (h *ChannelHandler) GetByID(c fiber.Ctx) error {
 	})
 }
 
-// Update edits a channel: admins may edit any channel, other users only
-// the ones they opened (see ChannelService.Update for the check).
+// Update edits a channel. Admin only: the route sits behind
+// middleware.RequireRole("admin"), so the caller is always staff.
 func (h *ChannelHandler) Update(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {
@@ -218,7 +218,7 @@ func (h *ChannelHandler) Update(c fiber.Ctx) error {
 	return c.JSON(channel)
 }
 
-// Delete lets the creator (or an admin) take a channel down.
+// Delete takes a channel down. Admin only, like Update.
 func (h *ChannelHandler) Delete(c fiber.Ctx) error {
 	userID, err := currentUserID(c)
 	if err != nil {
@@ -242,7 +242,7 @@ func (h *ChannelHandler) Delete(c fiber.Ctx) error {
 // wording, which names the action the caller was attempting.
 func channelErrorResponse(c fiber.Ctx, err error, internalMessage, action string) error {
 	if errors.Is(err, service.ErrForbidden) {
-		return replyErr(c, fiber.StatusForbidden, "Only the channel creator, a moderator or an admin can "+action+" this channel")
+		return replyErr(c, fiber.StatusForbidden, "Only an admin can "+action+" this channel")
 	}
 	return svcErr(c, err, internalMessage)
 }
