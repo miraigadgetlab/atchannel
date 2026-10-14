@@ -9,6 +9,7 @@ import PostCard from '@/components/PostCard.vue'
 import { channelsApi } from '@/api/channels'
 import { errorMessage, isNotFound } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
+import { setTitle } from '@/lib/title'
 import { useAuthStore } from '@/stores/auth'
 import type { ChannelDetail } from '@/types/api'
 
@@ -44,6 +45,7 @@ async function load(): Promise<void> {
   notFound.value = false
   try {
     channel.value = await channelsApi.get(props.id, { limit: LIMIT, offset: offset.value })
+    setTitle(channel.value.title)
   } catch (err) {
     if (isNotFound(err)) {
       notFound.value = true

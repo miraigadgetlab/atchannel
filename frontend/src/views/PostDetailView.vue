@@ -10,6 +10,7 @@ import { commentsApi } from '@/api/comments'
 import { postsApi } from '@/api/posts'
 import { errorMessage, isNotFound } from '@/lib/errors'
 import { formatRelative } from '@/lib/format'
+import { setTitle } from '@/lib/title'
 import { useAuthStore } from '@/stores/auth'
 import type { Comment, Post } from '@/types/api'
 
@@ -56,6 +57,7 @@ async function loadPost(): Promise<void> {
   post.value = data
   likes.value = data.likes
   liked.value = data.liked_by_me
+  setTitle(data.title)
 }
 
 async function loadComments(): Promise<void> {

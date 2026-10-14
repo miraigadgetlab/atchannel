@@ -6,6 +6,7 @@ import AppSpinner from '@/components/AppSpinner.vue'
 import { usersApi } from '@/api/users'
 import { errorMessage, isNotFound } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
+import { setTitle } from '@/lib/title'
 import type { PublicProfile } from '@/types/api'
 
 const props = defineProps<{ id: string }>()
@@ -21,6 +22,7 @@ async function load(): Promise<void> {
   error.value = ''
   try {
     profile.value = await usersApi.getProfile(props.id)
+    setTitle(profile.value.name)
   } catch (err) {
     if (isNotFound(err)) {
       notFound.value = true
