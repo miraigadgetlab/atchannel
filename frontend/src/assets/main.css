@@ -201,10 +201,12 @@ body::after {
 /*
  * Boxed alerts (errors, success notices) get the same ASCII frame — the
  * source site frames its quote/info boxes the same way. Small badges
- * (`bg-slate-100` etc.) intentionally stay out of this.
+ * (`bg-slate-100` etc.) intentionally stay out of this, and buttons do too:
+ * a toggle like the like button swaps to `bg-rose-50` when active, and an
+ * 8px ASCII frame popping in and out around it was pure noise.
  */
-.bg-rose-50,
-.bg-emerald-50 {
+.bg-rose-50:not(button),
+.bg-emerald-50:not(button) {
   border: 8px solid transparent;
   border-image: var(--ascii-border) 9 / 8px round;
 }
