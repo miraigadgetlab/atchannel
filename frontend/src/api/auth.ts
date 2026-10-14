@@ -5,6 +5,8 @@ export interface RegisterInput {
   name: string
   email: string
   password: string
+  /** Optional private note for the admins (owner and admins can read it). */
+  note?: string
 }
 
 export interface LoginInput {
@@ -45,6 +47,19 @@ export const authApi = {
     return request('/auth/reset-password', {
       method: 'POST',
       body: { token, new_password: newPassword },
+      auth: false,
+    })
+  },
+
+  /** Email-free recovery: a single-use code stands in for the emailed link. */
+  resetPasswordWithCode(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<{ status: string }> {
+    return request('/auth/reset-password-code', {
+      method: 'POST',
+      body: { email, code, new_password: newPassword },
       auth: false,
     })
   },

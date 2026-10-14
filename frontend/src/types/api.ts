@@ -19,6 +19,8 @@ export interface User {
   roles: Role[]
   about_me: string
   avatar_url?: string
+  /** Private note for the admins; only the owner and admins ever see it. */
+  note: string
   email_verified_at?: string
   banned_at?: string
   created_at: string

@@ -35,4 +35,12 @@ export const adminApi = {
   deleteUser(userId: number): Promise<{ deleted: boolean }> {
     return request(`/admin/users/${userId}`, { method: 'DELETE' })
   },
+
+  /**
+   * Issues a fresh batch of recovery codes for another account and returns the
+   * plaintext once, so an admin can hand it to a user who lost access.
+   */
+  generateRecoveryCodes(userId: number): Promise<{ user_id: number; codes: string[] }> {
+    return request(`/admin/users/${userId}/recovery-codes`, { method: 'POST' })
+  },
 }

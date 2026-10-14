@@ -7,6 +7,8 @@ export interface UpdateProfileInput {
   email?: string
   about_me?: string
   avatar_url?: string
+  /** Private note for the admins; empty string clears it. */
+  note?: string
   /** Required by the backend to change the email address. */
   current_password?: string
 }
@@ -35,6 +37,19 @@ export const usersApi = {
 
   resendVerification(): Promise<{ sent: boolean }> {
     return request('/me/verify-email', { method: 'POST' })
+  },
+
+  /** How many single-use recovery codes the caller has left. */
+  recoveryCodeStatus(): Promise<{ remaining: number }> {
+    return request('/me/recovery-codes')
+  },
+
+  /**
+   * Generates a new batch of recovery codes and returns the plaintext exactly
+   * once. Retires every previous code.
+   */
+  generateRecoveryCodes(): Promise<{ codes: string[] }> {
+    return request('/me/recovery-codes', { method: 'POST' })
   },
 
   uploadAvatar(file: File): Promise<User> {

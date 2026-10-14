@@ -20,6 +20,7 @@ interface UserRow {
   roles: Role[]
   busy: boolean
   notice: string
+  codes: string[]
 }
 
 const rows = ref<UserRow[]>([])
@@ -40,6 +41,7 @@ async function load(): Promise<void> {
       roles: [...user.roles],
       busy: false,
       notice: '',
+      codes: [],
     }))
     total.value = data.total
   } catch (err) {
@@ -110,6 +112,23 @@ async function deleteUser(row: UserRow): Promise<void> {
   }
 }
 
+// GenerateRecoveryCodes hands the plaintext codes to the admin exactly once.
+// The note reminds them to pass the codes on before navigating away.
+async function generateCodes(row: UserRow): Promise<void> {
+  row.busy = true
+  row.notice = ''
+  row.codes = []
+  try {
+    const result = await adminApi.generateRecoveryCodes(row.user.id)
+    row.codes = result.codes
+    row.notice = 'New recovery codes generated. Copy them now — they are shown only once.'
+  } catch (err) {
+    row.notice = errorMessage(err)
+  } finally {
+    row.busy = false
+  }
+}
+
 onMounted(async () => {
   await Promise.all([load(), loadStats()])
 })
@@ -169,9 +188,20 @@ onMounted(async () => {
             </p>
             <p class="text-sm text-slate-500">{{ row.user.email }}</p>
             <p class="text-xs text-slate-400">Joined {{ formatDate(row.user.created_at) }}</p>
+            <p v-if="row.user.note" class="mt-1 text-xs text-slate-500 whitespace-pre-wrap">
+              <span class="font-medium text-slate-600">Note:</span> {{ row.user.note }}
+            </p>
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              :disabled="row.busy"
+              @click="generateCodes(row)"
+            >
+              New codes
+            </button>
             <template v-if="row.user.id !== auth.user?.id">
               <button
                 type="button"
@@ -218,6 +248,18 @@ onMounted(async () => {
           </button>
 
           <span v-if="row.notice" class="text-xs text-slate-500">{{ row.notice }}</span>
+        </div>
+
+        <div
+          v-if="row.codes.length"
+          class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3"
+        >
+          <p class="mb-2 text-xs font-medium text-amber-800">
+            Shown only once — hand these to the user.
+          </p>
+          <ul class="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-800">
+            <li v-for="code in row.codes" :key="code">{{ code }}</li>
+          </ul>
         </div>
       </div>
 

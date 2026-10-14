@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
 import AppAvatar from '@/components/AppAvatar.vue'
 import { errorMessage } from '@/lib/errors'
 import { useAuthStore } from '@/stores/auth'
+import { usersApi } from '@/api/users'
 import type { UpdateProfileInput } from '@/api/users'
 
 const auth = useAuthStore()
@@ -15,6 +16,7 @@ const profileForm = reactive({
   name: auth.user?.name ?? '',
   email: auth.user?.email ?? '',
   about_me: auth.user?.about_me ?? '',
+  note: auth.user?.note ?? '',
   current_password: '',
 })
 const profileSaving = ref(false)
@@ -30,6 +32,7 @@ async function saveProfile(): Promise<void> {
   const input: UpdateProfileInput = {
     name: profileForm.name,
     about_me: profileForm.about_me,
+    note: profileForm.note,
   }
   if (profileForm.email !== auth.user?.email) {
     input.email = profileForm.email
@@ -126,6 +129,48 @@ async function resendVerification(): Promise<void> {
     resending.value = false
   }
 }
+
+// ---- Recovery codes -------------------------------------------------------
+const codesRemaining = ref<number | null>(null)
+const recoveryLoading = ref(false)
+const recoveryError = ref('')
+const generatedCodes = ref<string[]>([])
+const codesCopied = ref(false)
+
+async function loadRecoveryStatus(): Promise<void> {
+  try {
+    const { remaining } = await usersApi.recoveryCodeStatus()
+    codesRemaining.value = remaining
+  } catch {
+    codesRemaining.value = null
+  }
+}
+
+async function generateRecoveryCodes(): Promise<void> {
+  recoveryError.value = ''
+  codesCopied.value = false
+  recoveryLoading.value = true
+  try {
+    const { codes } = await usersApi.generateRecoveryCodes()
+    generatedCodes.value = codes
+    codesRemaining.value = codes.length
+  } catch (err) {
+    recoveryError.value = errorMessage(err)
+  } finally {
+    recoveryLoading.value = false
+  }
+}
+
+async function copyCodes(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(generatedCodes.value.join('\n'))
+    codesCopied.value = true
+  } catch {
+    codesCopied.value = false
+  }
+}
+
+onMounted(loadRecoveryStatus)
 </script>
 
 <template>
@@ -206,6 +251,23 @@ async function resendVerification(): Promise<void> {
           />
         </div>
 
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700" for="note">
+            Note for the admins
+          </label>
+          <textarea
+            id="note"
+            v-model="profileForm.note"
+            rows="3"
+            maxlength="500"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          />
+          <p class="mt-1 text-xs text-slate-500">
+            Private: only you and the admins can read it. It helps us recognise you if you ever lose
+            access.
+          </p>
+        </div>
+
         <p v-if="profileError" class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {{ profileError }}
         </p>
@@ -254,6 +316,61 @@ async function resendVerification(): Promise<void> {
           }}
         </button>
       </div>
+    </section>
+
+    <!-- Recovery codes -->
+    <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900">Recovery codes</h2>
+      <p class="mb-4 text-sm text-slate-600">
+        Single-use codes that let you set a new password without a reset email. Store them somewhere
+        safe — each code works only once.
+      </p>
+
+      <p v-if="codesRemaining !== null" class="mb-4 text-sm text-slate-500">
+        {{
+          codesRemaining > 0
+            ? `${codesRemaining} unused code${codesRemaining === 1 ? '' : 's'} left.`
+            : 'You have no unused codes.'
+        }}
+      </p>
+
+      <div v-if="generatedCodes.length" class="mb-4 space-y-3">
+        <p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Copy these now. They are shown only once, and generating a new batch retires every old
+          code.
+        </p>
+        <ul
+          class="grid grid-cols-2 gap-x-6 gap-y-1 rounded-lg border border-slate-300 bg-slate-50 p-4 text-sm text-slate-800"
+        >
+          <li v-for="code in generatedCodes" :key="code">{{ code }}</li>
+        </ul>
+        <button
+          type="button"
+          class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          @click="copyCodes"
+        >
+          {{ codesCopied ? 'Copied' : 'Copy codes' }}
+        </button>
+      </div>
+
+      <p v-if="recoveryError" class="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        {{ recoveryError }}
+      </p>
+
+      <button
+        type="button"
+        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+        :disabled="recoveryLoading"
+        @click="generateRecoveryCodes"
+      >
+        {{
+          recoveryLoading
+            ? 'Generating…'
+            : generatedCodes.length || (codesRemaining ?? 0) > 0
+              ? 'Generate new codes'
+              : 'Generate recovery codes'
+        }}
+      </button>
     </section>
 
     <!-- Password -->

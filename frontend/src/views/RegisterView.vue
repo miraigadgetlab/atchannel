@@ -11,6 +11,7 @@ const router = useRouter()
 const name = ref('')
 const email = ref('')
 const password = ref('')
+const note = ref('')
 const error = ref('')
 const loading = ref(false)
 
@@ -18,7 +19,7 @@ async function submit(): Promise<void> {
   error.value = ''
   loading.value = true
   try {
-    await auth.register(name.value, email.value, password.value)
+    await auth.register(name.value, email.value, password.value, note.value)
     await router.push({ name: 'home' })
   } catch (err) {
     error.value = errorMessage(err)
@@ -70,6 +71,22 @@ async function submit(): Promise<void> {
           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
         <p class="mt-1 text-xs text-slate-500">At least 8 characters.</p>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="note">
+          Note for the admins (optional)
+        </label>
+        <textarea
+          id="note"
+          v-model="note"
+          rows="3"
+          maxlength="500"
+          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+        />
+        <p class="mt-1 text-xs text-slate-500">
+          Only you and the admins can read this. If you ever lose access, it helps us recognise you.
+        </p>
       </div>
 
       <p v-if="error" class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ error }}</p>
