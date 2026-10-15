@@ -57,6 +57,10 @@ export const usersApi = {
     return request(`/users/${id}`)
   },
 
+  getProfileByName(name: string): Promise<PublicProfile> {
+    return request(`/users/by-name/${encodeURIComponent(name)}`)
+  },
+
   /** Public leaderboard: accounts ranked by post count, most active first. */
   listChannelers(params: PageParams = {}): Promise<Paginated<Channeler>> {
     return request('/users', {

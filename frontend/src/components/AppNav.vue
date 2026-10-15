@@ -5,12 +5,24 @@ import { RouterLink, useRouter } from 'vue-router'
 import AppAvatar from './AppAvatar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
+import { userSubdomain } from '@/lib/subdomain'
 
 const auth = useAuthStore()
 const notifications = useNotificationsStore()
 const router = useRouter()
 
 const menuOpen = ref(false)
+
+// On a user subdomain (kosero.atchannel.top) the root path is that account's
+// profile, so links that lead away from it point back at the apex site: the
+// brand and "Feed" keep the feed reachable, and "My profile" avoids rendering
+// a profile page under someone else's subdomain.
+const sub = userSubdomain()
+const apexOrigin = sub
+  ? `${window.location.protocol}//${window.location.host.slice(sub.length + 1)}`
+  : ''
+const apexHref = `${apexOrigin}/`
+const myProfileHref = `${apexOrigin}/users/${auth.user?.id ?? 0}`
 
 watch(
   () => auth.isAuthenticated,
@@ -34,7 +46,8 @@ async function logout(): Promise<void> {
 <template>
   <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
     <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-      <RouterLink to="/" class="order-1 brand text-indigo-700"> atchannel </RouterLink>
+      <RouterLink v-if="!sub" to="/" class="order-1 brand text-indigo-700"> atchannel </RouterLink>
+      <a v-else :href="apexHref" class="order-1 brand text-indigo-700"> atchannel </a>
 
       <!-- On narrow screens the nav drops to its own row (order-3, w-full)
            while brand and the account controls share the top row, so the two
@@ -42,9 +55,10 @@ async function logout(): Promise<void> {
       <nav
         class="order-3 flex w-full items-center justify-center gap-3 text-sm font-medium text-slate-600 sm:order-2 sm:w-auto sm:justify-start"
       >
-        <RouterLink to="/" class="hover:text-slate-900" exact-active-class="nav-active">
+        <RouterLink v-if="!sub" to="/" class="hover:text-slate-900" exact-active-class="nav-active">
           Feed
         </RouterLink>
+        <a v-else :href="apexHref" class="hover:text-slate-900"> Feed </a>
         <RouterLink to="/channels" class="hover:text-slate-900" active-class="nav-active">
           Channels
         </RouterLink>
@@ -106,7 +120,16 @@ async function logout(): Promise<void> {
               <div
                 class="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
               >
+                <a
+                  v-if="sub"
+                  :href="myProfileHref"
+                  class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  @click="menuOpen = false"
+                >
+                  My profile
+                </a>
                 <RouterLink
+                  v-else
                   :to="{ name: 'profile', params: { id: auth.user?.id ?? 0 } }"
                   class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                   @click="menuOpen = false"

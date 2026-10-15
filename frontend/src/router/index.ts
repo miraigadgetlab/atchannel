@@ -31,7 +31,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: () => import('@/views/HomeView.vue'),
+      component: () => import('@/views/HomeOrProfileView.vue'),
       meta: {
         title: 'Home',
         description: 'Latest posts and channels on atchannel — read, reply, share what you know.',

@@ -2,9 +2,6 @@ const BASE = 'atchannel'
 const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined) ?? 'https://atchannel.top'
 
 export function getBaseUrl(): string {
-  if (typeof window !== 'undefined' && window.location.origin) {
-    return window.location.origin
-  }
   return SITE_URL
 }
 
@@ -76,8 +73,12 @@ export function setSeo(options: SeoOptions = {}): void {
       : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
   )
 
-  const url = options.url ?? (typeof window !== 'undefined' ? window.location.href : SITE_URL)
-  const image = options.image ?? `${getBaseUrl()}/og-image.png`
+  const url =
+    options.url ??
+    (typeof window !== 'undefined'
+      ? `${SITE_URL}${window.location.pathname}${window.location.search}${window.location.hash}`
+      : SITE_URL)
+  const image = options.image ?? `${SITE_URL}/og-image.png`
 
   setProperty('og:site_name', BASE)
   setProperty('og:type', options.type ?? 'website')
