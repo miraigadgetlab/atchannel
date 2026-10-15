@@ -40,7 +40,7 @@ async function logout(): Promise<void> {
            while brand and the account controls share the top row, so the two
            never collide the way they did when everything wrapped together. -->
       <nav
-        class="order-3 flex w-full items-center gap-3 text-sm font-medium text-slate-600 sm:order-2 sm:w-auto"
+        class="order-3 flex w-full items-center justify-center gap-3 text-sm font-medium text-slate-600 sm:order-2 sm:w-auto sm:justify-start"
       >
         <RouterLink to="/" class="hover:text-slate-900" exact-active-class="nav-active">
           Feed
