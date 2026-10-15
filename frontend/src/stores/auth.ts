@@ -61,21 +61,16 @@ export const useAuthStore = defineStore('auth', () => {
     initialized.value = true
   }
 
-  async function login(email: string, password: string): Promise<void> {
-    const pair = await authApi.login({ email, password })
+  async function login(name: string, password: string): Promise<void> {
+    const pair = await authApi.login({ name, password })
     applyTokens(pair)
     await fetchMe()
   }
 
-  async function register(
-    name: string,
-    email: string,
-    password: string,
-    note?: string,
-  ): Promise<void> {
-    await authApi.register({ name, email, password, note })
+  async function register(name: string, password: string, note?: string): Promise<void> {
+    await authApi.register({ name, password, note })
     // Registration returns the account but no tokens, so sign in right away.
-    await login(email, password)
+    await login(name, password)
   }
 
   async function logout(): Promise<void> {

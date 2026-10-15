@@ -9,7 +9,7 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
-const email = ref('')
+const name = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
@@ -18,7 +18,7 @@ async function submit(): Promise<void> {
   error.value = ''
   loading.value = true
   try {
-    await auth.login(email.value, password.value)
+    await auth.login(name.value, password.value)
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     await router.push(redirect)
   } catch (err) {
@@ -36,12 +36,12 @@ async function submit(): Promise<void> {
 
     <form class="space-y-4" @submit.prevent="submit">
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="email">Email</label>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="name">Name</label>
         <input
-          id="email"
-          v-model="email"
-          type="email"
-          autocomplete="email"
+          id="name"
+          v-model="name"
+          type="text"
+          autocomplete="username"
           required
           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
@@ -72,7 +72,7 @@ async function submit(): Promise<void> {
 
     <div class="mt-4 flex items-center justify-between text-sm">
       <RouterLink :to="{ name: 'forgot-password' }" class="text-indigo-600 hover:text-indigo-700">
-        Forgot password?
+        Recover account
       </RouterLink>
       <RouterLink :to="{ name: 'register' }" class="text-slate-600 hover:text-slate-900">
         Create an account

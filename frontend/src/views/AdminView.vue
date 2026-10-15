@@ -186,7 +186,6 @@ onMounted(async () => {
                 You
               </span>
             </p>
-            <p class="text-sm text-slate-500">{{ row.user.email }}</p>
             <p class="text-xs text-slate-400">Joined {{ formatDate(row.user.created_at) }}</p>
             <p v-if="row.user.note" class="mt-1 text-xs text-slate-500 whitespace-pre-wrap">
               <span class="font-medium text-slate-600">Note:</span> {{ row.user.note }}

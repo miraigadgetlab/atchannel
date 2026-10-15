@@ -4,12 +4,11 @@ import type { Channeler, PageParams, Paginated, PublicProfile, User } from '@/ty
 /** Only the provided fields are sent; the backend treats omitted as "leave". */
 export interface UpdateProfileInput {
   name?: string
-  email?: string
   about_me?: string
   avatar_url?: string
   /** Private note for the admins; empty string clears it. */
   note?: string
-  /** Required by the backend to change the email address. */
+  /** Required by the backend to change the name (the login identity). */
   current_password?: string
 }
 

@@ -3,14 +3,13 @@ import type { TokenPair, User } from '@/types/api'
 
 export interface RegisterInput {
   name: string
-  email: string
   password: string
   /** Optional private note for the admins (owner and admins can read it). */
   note?: string
 }
 
 export interface LoginInput {
-  email: string
+  name: string
   password: string
 }
 
@@ -35,27 +34,16 @@ export const authApi = {
     return request('/auth/logout-all', { method: 'POST' })
   },
 
-  forgotPassword(email: string): Promise<{ status: string }> {
-    return request('/auth/forgot-password', { method: 'POST', body: { email }, auth: false })
-  },
-
-  resetPassword(token: string, newPassword: string): Promise<{ status: string }> {
-    return request('/auth/reset-password', {
-      method: 'POST',
-      body: { token, new_password: newPassword },
-      auth: false,
-    })
-  },
-
-  /** Email-free recovery: a single-use code stands in for the emailed link. */
+  /** Code-based recovery: a single-use code, generated in settings, stands in
+   * for an emailed reset link. */
   resetPasswordWithCode(
-    email: string,
+    name: string,
     code: string,
     newPassword: string,
   ): Promise<{ status: string }> {
     return request('/auth/reset-password-code', {
       method: 'POST',
-      body: { email, code, new_password: newPassword },
+      body: { name, code, new_password: newPassword },
       auth: false,
     })
   },

@@ -15,7 +15,6 @@ export type PostSort = 'new' | 'old' | 'top'
 export interface User {
   id: number
   name: string
-  email: string
   roles: Role[]
   about_me: string
   avatar_url?: string

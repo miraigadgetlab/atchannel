@@ -9,7 +9,6 @@ const auth = useAuthStore()
 const router = useRouter()
 
 const name = ref('')
-const email = ref('')
 const password = ref('')
 const note = ref('')
 const error = ref('')
@@ -19,7 +18,7 @@ async function submit(): Promise<void> {
   error.value = ''
   loading.value = true
   try {
-    await auth.register(name.value, email.value, password.value, note.value)
+    await auth.register(name.value, password.value, note.value)
     await router.push({ name: 'home' })
   } catch (err) {
     error.value = errorMessage(err)
@@ -42,18 +41,6 @@ async function submit(): Promise<void> {
           v-model="name"
           type="text"
           autocomplete="nickname"
-          required
-          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-        />
-      </div>
-
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="email">Email</label>
-        <input
-          id="email"
-          v-model="email"
-          type="email"
-          autocomplete="email"
           required
           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />

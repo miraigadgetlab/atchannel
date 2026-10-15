@@ -14,7 +14,6 @@ const router = useRouter()
 // ---- Profile fields -------------------------------------------------------
 const profileForm = reactive({
   name: auth.user?.name ?? '',
-  email: auth.user?.email ?? '',
   about_me: auth.user?.about_me ?? '',
   note: auth.user?.note ?? '',
   current_password: '',
@@ -34,8 +33,7 @@ async function saveProfile(): Promise<void> {
     about_me: profileForm.about_me,
     note: profileForm.note,
   }
-  if (profileForm.email !== auth.user?.email) {
-    input.email = profileForm.email
+  if (profileForm.current_password) {
     input.current_password = profileForm.current_password
   }
 
@@ -203,19 +201,8 @@ onMounted(loadRecoveryStatus)
         </div>
 
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="email">Email</label>
-          <input
-            id="email"
-            v-model="profileForm.email"
-            type="email"
-            required
-            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-          />
-        </div>
-
-        <div v-if="profileForm.email !== auth.user?.email">
           <label class="mb-1 block text-sm font-medium text-slate-700" for="current-password">
-            Current password (required to change email)
+            Current password (required to change your name)
           </label>
           <input
             id="current-password"
@@ -224,6 +211,9 @@ onMounted(loadRecoveryStatus)
             autocomplete="current-password"
             class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
           />
+          <p class="mt-1 text-xs text-slate-500">
+            Changing your name is the login identity change — enter your password to confirm.
+          </p>
         </div>
 
         <div>
@@ -287,7 +277,7 @@ onMounted(loadRecoveryStatus)
     <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 class="mb-2 text-lg font-semibold text-slate-900">Recovery codes</h2>
       <p class="mb-4 text-sm text-slate-600">
-        Single-use codes that let you set a new password without a reset email. Store them somewhere
+        Single-use codes that let you set a new password if you lose access. Store them somewhere
         safe — each code works only once.
       </p>
 
