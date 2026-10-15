@@ -11,7 +11,9 @@ backend/atchannel
 
 # env / secrets
 .env
+.env.server
 deploy/.env
+deploy/.env.server
 
 # runtime data (podman volumes hold the real data)
 backend/uploads/
