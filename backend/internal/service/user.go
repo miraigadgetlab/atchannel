@@ -209,6 +209,16 @@ func (s *UserService) GetPublicProfile(ctx context.Context, userID uint) (*model
 	return user, posts, comments, nil
 }
 
+// GetPublicProfileByName returns an account together with how much it has posted and commented,
+// for the public profile page.
+func (s *UserService) GetPublicProfileByName(ctx context.Context, name string) (*models.User, int64, int64, error) {
+	user, err := s.GetByName(ctx, name)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	return s.GetPublicProfile(ctx, user.ID)
+}
+
 // ChannelerRank is one row of the public channeler leaderboard: an account
 // plus how many posts it has written.
 type ChannelerRank struct {

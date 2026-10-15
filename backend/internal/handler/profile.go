@@ -83,6 +83,30 @@ func (h *ProfileHandler) GetByID(c fiber.Ctx) error {
 	})
 }
 
+// GetByName returns another account's public profile by name. It is unauthenticated and
+// exposes only the safe author fields plus activity counts.
+func (h *ProfileHandler) GetByName(c fiber.Ctx) error {
+	name := strings.TrimSpace(c.Params("name"))
+	if msg := validation.NameError(name); msg != "" {
+		return replyBadRequest(c, msg)
+	}
+
+	user, posts, comments, err := h.userService.GetPublicProfileByName(c.Context(), name)
+	if err != nil {
+		return svcErr(c, err, "Failed to fetch user")
+	}
+
+	return c.JSON(PublicProfile{
+		ID:           user.ID,
+		Name:         user.Name,
+		AboutMe:      user.AboutMe,
+		AvatarURL:    user.AvatarUrl,
+		CreatedAt:    user.CreatedAt,
+		PostCount:    posts,
+		CommentCount: comments,
+	})
+}
+
 // ListChannelers is the public leaderboard: accounts ranked by how many posts
 // they have written, most active first. It is unauthenticated and exposes only
 // the safe author fields plus the post count.
