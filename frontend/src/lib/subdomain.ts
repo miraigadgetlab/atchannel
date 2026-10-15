@@ -26,7 +26,7 @@ export function userSubdomain(): string | null {
 
   const host = window.location.hostname.toLowerCase()
   const rootDomain = import.meta.env.VITE_ROOT_DOMAIN as string | undefined
-  let base = (rootDomain || '').split(':')[0].toLowerCase()
+  let base = (rootDomain || '').split(':')[0]?.toLowerCase() ?? ''
 
   // Local development: browsers resolve *.localhost to the loopback address
   // (RFC 6761), so http://kosero.localhost:5173 behaves like a real subdomain
