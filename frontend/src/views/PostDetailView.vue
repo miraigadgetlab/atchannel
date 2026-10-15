@@ -10,7 +10,7 @@ import { commentsApi } from '@/api/comments'
 import { postsApi } from '@/api/posts'
 import { errorMessage, isNotFound } from '@/lib/errors'
 import { formatRelative } from '@/lib/format'
-import { setTitle } from '@/lib/title'
+import { getBaseUrl, setSeo } from '@/lib/seo'
 import { useAuthStore } from '@/stores/auth'
 import type { Comment, Post } from '@/types/api'
 
@@ -57,7 +57,54 @@ async function loadPost(): Promise<void> {
   post.value = data
   likes.value = data.likes
   liked.value = data.liked_by_me
-  setTitle(data.title)
+}
+
+// Search engines index this page, so it carries the full story: a title that
+// matches the query, the first lines of the thread as the snippet, and
+// DiscussionForumPosting JSON-LD so Google can render it as a discussion
+// result (Reddit-style) with its like/comment counts.
+function applySeo(): void {
+  const data = post.value
+  if (!data) {
+    return
+  }
+  const baseUrl = getBaseUrl()
+  const url = `${baseUrl}/posts/${data.id}`
+  const description = `${data.content.replace(/\s+/g, ' ').trim().slice(0, 160)}`
+  setSeo({
+    title: data.title,
+    description: description || `${data.title} — discussion in #${data.channel_name}`,
+    type: 'article',
+    url,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'DiscussionForumPosting',
+      headline: data.title,
+      text: data.content,
+      url,
+      datePublished: data.created_at,
+      dateModified: data.updated_at,
+      author: {
+        '@type': 'Person',
+        name: data.user.name,
+        url: `${baseUrl}/users/${data.user_id}`,
+      },
+      publisher: { '@type': 'Organization', name: 'atchannel', url: baseUrl },
+      articleSection: data.channel_name,
+      interactionStatistic: [
+        {
+          '@type': 'InteractionCounter',
+          interactionType: 'https://schema.org/LikeAction',
+          userInteractionCount: data.likes,
+        },
+        {
+          '@type': 'InteractionCounter',
+          interactionType: 'https://schema.org/CommentAction',
+          userInteractionCount: commentTotal.value,
+        },
+      ],
+    },
+  })
 }
 
 async function loadComments(): Promise<void> {
@@ -72,6 +119,7 @@ async function load(): Promise<void> {
   notFound.value = false
   try {
     await Promise.all([loadPost(), loadComments()])
+    applySeo()
   } catch (err) {
     if (isNotFound(err)) {
       notFound.value = true

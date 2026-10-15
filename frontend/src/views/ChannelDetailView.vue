@@ -9,7 +9,7 @@ import PostCard from '@/components/PostCard.vue'
 import { channelsApi } from '@/api/channels'
 import { errorMessage, isNotFound } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
-import { setTitle } from '@/lib/title'
+import { getBaseUrl, setSeo } from '@/lib/seo'
 import { useAuthStore } from '@/stores/auth'
 import type { ChannelDetail } from '@/types/api'
 
@@ -33,6 +33,40 @@ const editForm = ref({ name: '', title: '', description: '' })
 const saving = ref(false)
 const editError = ref('')
 
+// A channel is an indexable landing page in search results, so it publishes
+// its title/description plus CollectionPage + breadcrumb JSON-LD to show
+// Google the channel's place in the site hierarchy.
+function applySeo(): void {
+  const data = channel.value
+  if (!data) {
+    return
+  }
+  const baseUrl = getBaseUrl()
+  const url = `${baseUrl}/channels/${data.id}`
+  const description =
+    data.description?.trim().slice(0, 160) ||
+    `${data.title} — ${postCount.value} post${postCount.value === 1 ? '' : 's'} in #${data.name}`
+  setSeo({
+    title: data.title,
+    description,
+    url,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: data.title,
+      description,
+      url,
+      breadcrumb: {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Channels', item: `${baseUrl}/channels` },
+          { '@type': 'ListItem', position: 2, name: data.title, item: url },
+        ],
+      },
+    },
+  })
+}
+
 const postCount = computed(() => channel.value?.post_count ?? 0)
 
 async function load(): Promise<void> {
@@ -41,7 +75,7 @@ async function load(): Promise<void> {
   notFound.value = false
   try {
     channel.value = await channelsApi.get(props.id, { limit: LIMIT, offset: offset.value })
-    setTitle(channel.value.title)
+    applySeo()
   } catch (err) {
     if (isNotFound(err)) {
       notFound.value = true

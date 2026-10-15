@@ -7,4 +7,7 @@ Disallow: /login
 Disallow: /register
 Disallow: /forgot-password
 
+# Dynamic sitemap (all posts, channels and profiles) served by the backend.
+Sitemap: https://atchannel.top/api/v1/sitemap.xml
+# Static fallback covering the core pages.
 Sitemap: https://atchannel.top/sitemap.xml

@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import { setTitle } from '@/lib/title'
+import { setSeo } from '@/lib/seo'
 import { useAuthStore } from '@/stores/auth'
 import type { Role } from '@/types/api'
 
@@ -15,6 +15,10 @@ declare module 'vue-router' {
     roles?: Role[]
     /** Tab title label; content views override it once their data loads. */
     title?: string
+    /** Meta description search engines show under the result. */
+    description?: string
+    /** Keeps the route out of search indexes (settings, auth, 404). */
+    noindex?: boolean
   }
 }
 
@@ -28,36 +32,46 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: () => import('@/views/HomeView.vue'),
+      meta: {
+        title: 'Home',
+        description: 'Latest posts and channels on atchannel — read, reply, share what you know.',
+      },
     },
     {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
-      meta: { guestOnly: true, title: 'Sign in' },
+      meta: { guestOnly: true, title: 'Sign in', noindex: true },
     },
     {
       path: '/register',
       name: 'register',
       component: () => import('@/views/RegisterView.vue'),
-      meta: { guestOnly: true, title: 'Register' },
+      meta: { guestOnly: true, title: 'Register', noindex: true },
     },
     {
       path: '/forgot-password',
       name: 'forgot-password',
       component: () => import('@/views/ForgotPasswordView.vue'),
-      meta: { guestOnly: true, title: 'Recover account' },
+      meta: { guestOnly: true, title: 'Recover account', noindex: true },
     },
     {
       path: '/channels',
       name: 'channels',
       component: () => import('@/views/ChannelsView.vue'),
-      meta: { title: 'Channels' },
+      meta: {
+        title: 'Channels',
+        description: 'Browse every discussion channel on atchannel.',
+      },
     },
     {
       path: '/channelers',
       name: 'channelers',
       component: () => import('@/views/ChannelersView.vue'),
-      meta: { title: 'Channelers' },
+      meta: {
+        title: 'Channelers',
+        description: 'The most active channelers on atchannel, ranked by post count.',
+      },
     },
     {
       path: '/channels/:id',
@@ -97,25 +111,25 @@ const router = createRouter({
       path: '/me',
       name: 'me',
       component: () => import('@/views/MeView.vue'),
-      meta: { requiresAuth: true, title: 'Settings' },
+      meta: { requiresAuth: true, title: 'Settings', noindex: true },
     },
     {
       path: '/notifications',
       name: 'notifications',
       component: () => import('@/views/NotificationsView.vue'),
-      meta: { requiresAuth: true, title: 'Notifications' },
+      meta: { requiresAuth: true, title: 'Notifications', noindex: true },
     },
     {
       path: '/admin',
       name: 'admin',
       component: () => import('@/views/AdminView.vue'),
-      meta: { requiresAuth: true, roles: ['admin'], title: 'Admin' },
+      meta: { requiresAuth: true, roles: ['admin'], title: 'Admin', noindex: true },
     },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/NotFoundView.vue'),
-      meta: { title: 'Page not found' },
+      meta: { title: 'Page not found', noindex: true },
     },
   ],
 })
@@ -144,10 +158,15 @@ router.beforeEach(async (to) => {
   return true
 })
 
-// Every navigation resets the tab title from the route's static label; content
-// views then refine it (post title, channel title, profile name) once loaded.
+// Every navigation rewrites the tab title and the meta tags search engines
+// read (description, robots, canonical, cards); content views then refine it
+// with their own data — and JSON-LD — once loaded.
 router.afterEach((to) => {
-  setTitle(typeof to.meta.title === 'string' ? to.meta.title : undefined)
+  setSeo({
+    title: typeof to.meta.title === 'string' ? to.meta.title : undefined,
+    description: typeof to.meta.description === 'string' ? to.meta.description : undefined,
+    noindex: to.meta.noindex,
+  })
 })
 
 export default router

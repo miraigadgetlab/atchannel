@@ -58,7 +58,9 @@ async function submit(): Promise<void> {
       </div>
 
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="code">Recovery code</label>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="code"
+          >Recovery code</label
+        >
         <input
           id="code"
           v-model="code"
@@ -71,7 +73,9 @@ async function submit(): Promise<void> {
       </div>
 
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="password">New password</label>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="password"
+          >New password</label
+        >
         <input
           id="password"
           v-model="password"

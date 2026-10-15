@@ -6,7 +6,7 @@ import AppSpinner from '@/components/AppSpinner.vue'
 import { usersApi } from '@/api/users'
 import { errorMessage, isNotFound } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
-import { setTitle } from '@/lib/title'
+import { getBaseUrl, setSeo } from '@/lib/seo'
 import type { PublicProfile } from '@/types/api'
 
 const props = defineProps<{ id: string }>()
@@ -22,7 +22,7 @@ async function load(): Promise<void> {
   error.value = ''
   try {
     profile.value = await usersApi.getProfile(props.id)
-    setTitle(profile.value.name)
+    applySeo()
   } catch (err) {
     if (isNotFound(err)) {
       notFound.value = true
@@ -32,6 +32,35 @@ async function load(): Promise<void> {
   } finally {
     loading.value = false
   }
+}
+
+// Public profiles are indexable; ProfilePage JSON-LD tells search engines
+// this page is a person's account, so "name atchannel" searches resolve here.
+function applySeo(): void {
+  const data = profile.value
+  if (!data) {
+    return
+  }
+  const url = `${getBaseUrl()}/users/${data.id}`
+  const description =
+    data.about_me?.trim().slice(0, 160) ||
+    `${data.name} on atchannel — ${data.post_count} post${data.post_count === 1 ? '' : 's'}, ${data.comment_count} comment${data.comment_count === 1 ? '' : 's'}.`
+  setSeo({
+    title: data.name,
+    description,
+    type: 'profile',
+    url,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'ProfilePage',
+      mainEntity: {
+        '@type': 'Person',
+        name: data.name,
+        description: data.about_me?.trim() || undefined,
+        url,
+      },
+    },
+  })
 }
 
 watch(() => props.id, load)
