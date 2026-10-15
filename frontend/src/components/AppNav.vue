@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 
 import AppAvatar from './AppAvatar.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -9,9 +9,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 const auth = useAuthStore()
 const notifications = useNotificationsStore()
 const router = useRouter()
-const route = useRoute()
 
-const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const menuOpen = ref(false)
 
 watch(
@@ -25,10 +23,6 @@ watch(
   },
   { immediate: true },
 )
-
-function submitSearch(): void {
-  void router.push({ name: 'home', query: search.value ? { q: search.value } : {} })
-}
 
 async function logout(): Promise<void> {
   menuOpen.value = false
@@ -53,18 +47,6 @@ async function logout(): Promise<void> {
           Channelers
         </RouterLink>
       </nav>
-
-      <form
-        class="order-last w-full sm:order-none sm:ml-2 sm:w-auto sm:flex-1"
-        @submit.prevent="submitSearch"
-      >
-        <input
-          v-model="search"
-          type="search"
-          placeholder="Search posts…"
-          class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none sm:max-w-xs"
-        />
-      </form>
 
       <div class="ml-auto flex items-center gap-2">
         <template v-if="auth.isAuthenticated">
