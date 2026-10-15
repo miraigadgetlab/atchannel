@@ -22,6 +22,7 @@ const loading = ref(true)
 const error = ref('')
 
 const sort = ref<PostSort>((route.query.sort as PostSort) ?? 'new')
+const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 
 async function load(): Promise<void> {
   loading.value = true
@@ -40,11 +41,11 @@ async function load(): Promise<void> {
   }
 }
 
-function applySort(): void {
+function applyFilters(): void {
   void router.push({
     name: 'home',
     query: {
-      ...(route.query.q ? { q: route.query.q as string } : {}),
+      ...(search.value ? { q: search.value } : {}),
       ...(sort.value !== 'new' ? { sort: sort.value } : {}),
     },
   })
@@ -61,6 +62,7 @@ watch(
   () => route.query,
   () => {
     offset.value = 0
+    search.value = typeof route.query.q === 'string' ? route.query.q : ''
     sort.value = (route.query.sort as PostSort) ?? 'new'
     void load()
   },
@@ -72,10 +74,17 @@ onMounted(load)
 <template>
   <div>
     <div class="mb-6 flex flex-wrap items-center gap-2">
+      <input
+        v-model="search"
+        type="search"
+        placeholder="Search…"
+        class="w-40 rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+        @keyup.enter="applyFilters"
+      />
       <select
         v-model="sort"
         class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
-        @change="applySort"
+        @change="applyFilters"
       >
         <option value="new">Newest</option>
         <option value="old">Oldest</option>
