@@ -39,6 +39,10 @@ type Config struct {
 	// client can forge that header to escape per-IP rate limits.
 	TrustedProxies []string
 
+	// SiteBaseURL is the public origin used to build absolute URLs in the
+	// sitemap (and any other machine-readable links). No trailing slash.
+	SiteBaseURL string
+
 	// Avatar uploads are stored on local disk under UploadDir and served back
 	// at /uploads/... Keep MaxAvatarBytes well under the HTTP body limit:
 	// avatars are meant to be tiny.
@@ -75,6 +79,7 @@ func LoadConfig() *Config {
 		WriteLimitMax:     envInt("WRITE_LIMIT_MAX", 30),
 		WriteLimitWindow:  envDuration("WRITE_LIMIT_WINDOW", time.Minute),
 		TrustedProxies:    parseList(os.Getenv("TRUSTED_PROXIES")),
+		SiteBaseURL:       strings.TrimSuffix(envString("SITE_BASE_URL", "https://atchannel.top"), "/"),
 		UploadDir:         envString("UPLOAD_DIR", "./uploads"),
 		MaxAvatarBytes:    envInt64("MAX_AVATAR_BYTES", 1<<20),
 		AdminName:         os.Getenv("ADMIN_NAME"),

@@ -44,6 +44,7 @@ func main() {
 	commentService := service.NewCommentService(db.DB, notificationService)
 	statsService := service.NewStatsService(db.DB)
 	sessionService := service.NewSessionService(db.DB)
+	sitemapService := service.NewSitemapService(db.DB, cfg.SiteBaseURL)
 
 	// Password recovery is code-based: a one-time code the user generated
 	// from their settings (or an admin generated for them) is exchanged for
@@ -72,6 +73,7 @@ func main() {
 	profileHandler := handler.NewProfileHandler(userService, sessionService, cfg.UploadDir, cfg.MaxAvatarBytes)
 	accountHandler := handler.NewAccountHandler(accountService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
+	sitemapHandler := handler.NewSitemapHandler(sitemapService)
 
 	fiberCfg := fiber.Config{
 		// A single abusive client must not be able to pin memory with a
@@ -126,6 +128,7 @@ func main() {
 		ProfileHandler:      profileHandler,
 		AccountHandler:      accountHandler,
 		NotificationHandler: notificationHandler,
+		SitemapHandler:      sitemapHandler,
 	})
 
 	// Graceful shutdown: SIGTERM/SIGINT lets in-flight requests finish

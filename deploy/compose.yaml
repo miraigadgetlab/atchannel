@@ -39,6 +39,8 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       # comma separated origins, "*" for any (tighten this in production)
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      # public origin used to build absolute URLs in the sitemap
+      - SITE_BASE_URL=${SITE_BASE_URL:-https://atchannel.top}
       # trusted proxy IPs/CIDRs whose X-Forwarded-For is believed (empty = trust none)
       - TRUSTED_PROXIES=${TRUSTED_PROXIES:-}
       # brute force protection: attempts per window per IP (register counts

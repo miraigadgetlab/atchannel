@@ -24,6 +24,7 @@ type RouterDeps struct {
 	ProfileHandler      *handler.ProfileHandler
 	AccountHandler      *handler.AccountHandler
 	NotificationHandler *handler.NotificationHandler
+	SitemapHandler      *handler.SitemapHandler
 }
 
 func SetupRoutes(app *fiber.App, deps RouterDeps) {
@@ -100,6 +101,10 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	api.Get("/health", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
+
+	// Sitemap for search engines: same /api/v1 prefix the SPA already reaches,
+	// so it is served on the real domain without extra host configuration.
+	api.Get("/sitemap.xml", deps.SitemapHandler.Get)
 
 	// Public
 	api.Post("/auth/register", registerLimit, deps.AuthHandler.Register)
