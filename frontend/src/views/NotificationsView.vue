@@ -9,6 +9,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import { notificationsApi } from '@/api/notifications'
 import { errorMessage } from '@/lib/errors'
 import { formatRelative } from '@/lib/format'
+import { profileRoute } from '@/lib/profileUrl'
 import { useNotificationsStore } from '@/stores/notifications'
 import type { Notification } from '@/types/api'
 
@@ -82,13 +83,13 @@ onMounted(async () => {
         class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4"
         :class="{ 'bg-indigo-50/40': !item.read_at }"
       >
-        <RouterLink :to="{ name: 'profile', params: { id: item.actor.id } }">
+        <RouterLink :to="profileRoute(item.actor)">
           <AppAvatar :name="item.actor.name" :avatar-url="item.actor.avatar_url" size="sm" />
         </RouterLink>
 
         <p class="flex-1 text-sm text-slate-700">
           <RouterLink
-            :to="{ name: 'profile', params: { id: item.actor.id } }"
+            :to="profileRoute(item.actor)"
             class="font-medium text-slate-900 hover:text-indigo-700"
           >
             {{ item.actor.name }}

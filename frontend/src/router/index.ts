@@ -126,6 +126,17 @@ const router = createRouter({
       meta: { requiresAuth: true, roles: ['admin'], title: 'Admin', noindex: true },
     },
     {
+      // Pretty profile URLs: /emirhan instead of /users/4. Declared after every
+      // named route so /login, /channels… always win, and after /users/:id so
+      // the numeric form keeps working. Accounts whose name collides with a
+      // route above are linked through /users/:id (see lib/profileUrl).
+      path: '/:name',
+      name: 'profile-by-name',
+      component: () => import('@/views/HomeOrProfileView.vue'),
+      props: true,
+      meta: { title: 'Profile' },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/NotFoundView.vue'),

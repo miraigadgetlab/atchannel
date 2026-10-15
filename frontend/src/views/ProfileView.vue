@@ -6,7 +6,8 @@ import AppSpinner from '@/components/AppSpinner.vue'
 import { usersApi } from '@/api/users'
 import { errorMessage, isNotFound } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
-import { getBaseUrl, setSeo } from '@/lib/seo'
+import { profileUrl } from '@/lib/profileUrl'
+import { setSeo } from '@/lib/seo'
 import type { PublicProfile } from '@/types/api'
 
 const props = defineProps<{ id: string }>()
@@ -41,7 +42,7 @@ function applySeo(): void {
   if (!data) {
     return
   }
-  const url = `${getBaseUrl()}/users/${data.id}`
+  const url = profileUrl(data)
   const description =
     data.about_me?.trim().slice(0, 160) ||
     `${data.name} on atchannel — ${data.post_count} post${data.post_count === 1 ? '' : 's'}, ${data.comment_count} comment${data.comment_count === 1 ? '' : 's'}.`

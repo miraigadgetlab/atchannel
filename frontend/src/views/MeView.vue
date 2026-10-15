@@ -4,6 +4,7 @@ import { RouterLink, useRouter } from 'vue-router'
 
 import AppAvatar from '@/components/AppAvatar.vue'
 import { errorMessage } from '@/lib/errors'
+import { profileRoute } from '@/lib/profileUrl'
 import { useAuthStore } from '@/stores/auth'
 import { usersApi } from '@/api/users'
 import type { UpdateProfileInput } from '@/api/users'
@@ -264,7 +265,7 @@ onMounted(loadRecoveryStatus)
           </button>
           <RouterLink
             v-if="auth.user"
-            :to="{ name: 'profile', params: { id: auth.user.id } }"
+            :to="profileRoute(auth.user)"
             class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
           >
             View public profile

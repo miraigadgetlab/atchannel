@@ -5,6 +5,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import AppAvatar from './AppAvatar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
+import { profileRoute } from '@/lib/profileUrl'
 import { userSubdomain } from '@/lib/subdomain'
 
 const auth = useAuthStore()
@@ -22,7 +23,11 @@ const apexOrigin = sub
   ? `${window.location.protocol}//${window.location.host.slice(sub.length + 1)}`
   : ''
 const apexHref = `${apexOrigin}/`
-const myProfileHref = `${apexOrigin}/users/${auth.user?.id ?? 0}`
+// On a subdomain "My profile" has to leave that subdomain, so the target is
+// resolved to a path (/emirhan, or /users/4 when the name is taken) and then
+// prefixed with the apex origin.
+const myProfilePath = auth.user ? router.resolve(profileRoute(auth.user)).fullPath : '/'
+const myProfileHref = `${apexOrigin}${myProfilePath}`
 
 watch(
   () => auth.isAuthenticated,
@@ -130,7 +135,7 @@ async function logout(): Promise<void> {
                 </a>
                 <RouterLink
                   v-else
-                  :to="{ name: 'profile', params: { id: auth.user?.id ?? 0 } }"
+                  :to="auth.user ? profileRoute(auth.user) : { name: 'home' }"
                   class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                   @click="menuOpen = false"
                 >

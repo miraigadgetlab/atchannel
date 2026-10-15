@@ -5,6 +5,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import AppAvatar from './AppAvatar.vue'
 import { postsApi } from '@/api/posts'
 import { formatRelative } from '@/lib/format'
+import { profileRoute } from '@/lib/profileUrl'
 import { useAuthStore } from '@/stores/auth'
 import type { Post } from '@/types/api'
 
@@ -94,7 +95,7 @@ async function toggleLike(): Promise<void> {
 
     <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
       <RouterLink
-        :to="{ name: 'profile', params: { id: post.user.id } }"
+        :to="profileRoute(post.user)"
         class="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
       >
         <AppAvatar :name="post.user.name" :avatar-url="post.user.avatar_url" size="sm" />

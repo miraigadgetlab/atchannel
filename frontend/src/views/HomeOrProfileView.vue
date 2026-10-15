@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import AppSpinner from '@/components/AppSpinner.vue'
 import HomeView from '@/views/HomeView.vue'
@@ -13,18 +13,32 @@ import { userSubdomain } from '@/lib/subdomain'
 // feed, but on a user subdomain (kosero.atchannel.top) it is that account's
 // public profile. Resolving it here — instead of redirecting to /users/:id —
 // keeps the address bar on the subdomain root, which is the URL people share.
+//
+// The same view backs the pretty profile route /:name, where the account comes
+// from the route instead of the host; when neither is present this is the feed.
+const props = defineProps<{ name?: string }>()
+
 const sub = userSubdomain()
+const account = computed(() => props.name ?? sub)
 const profileId = ref<string | null>(null)
-const loading = ref(Boolean(sub))
+const loading = ref(false)
 const notFound = ref(false)
 const error = ref('')
 
-async function resolveSubdomain(): Promise<void> {
-  if (!sub) {
+async function resolve(): Promise<void> {
+  const name = account.value
+  profileId.value = null
+  notFound.value = false
+  error.value = ''
+
+  if (!name) {
+    loading.value = false
     return
   }
+
+  loading.value = true
   try {
-    const profile = await usersApi.getProfileByName(sub)
+    const profile = await usersApi.getProfileByName(name)
     profileId.value = String(profile.id)
   } catch (err) {
     if (isNotFound(err)) {
@@ -37,7 +51,9 @@ async function resolveSubdomain(): Promise<void> {
   }
 }
 
-void resolveSubdomain()
+// The component instance is reused when moving between /, /emirhan and another
+// profile, so the account has to be watched rather than merely read once.
+watch(account, resolve, { immediate: true })
 </script>
 
 <template>

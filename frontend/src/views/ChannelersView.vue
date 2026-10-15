@@ -8,6 +8,7 @@ import AppSpinner from '@/components/AppSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { usersApi } from '@/api/users'
 import { errorMessage } from '@/lib/errors'
+import { profileRoute } from '@/lib/profileUrl'
 import type { Channeler } from '@/types/api'
 
 const LIMIT = 20
@@ -58,7 +59,7 @@ onMounted(load)
       <RouterLink
         v-for="(channeler, index) in channelers"
         :key="channeler.id"
-        :to="{ name: 'profile', params: { id: channeler.id } }"
+        :to="profileRoute(channeler)"
         class="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-indigo-300 hover:shadow-sm"
       >
         <span class="w-8 shrink-0 text-center text-lg font-bold text-slate-400">

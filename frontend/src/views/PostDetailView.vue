@@ -11,6 +11,7 @@ import { postsApi } from '@/api/posts'
 import { errorMessage, isNotFound } from '@/lib/errors'
 import { formatRelative } from '@/lib/format'
 import { getBaseUrl, setSeo } from '@/lib/seo'
+import { profileRoute, profileUrl } from '@/lib/profileUrl'
 import { useAuthStore } from '@/stores/auth'
 import type { Comment, Post } from '@/types/api'
 
@@ -87,7 +88,7 @@ function applySeo(): void {
       author: {
         '@type': 'Person',
         name: data.user.name,
-        url: `${baseUrl}/users/${data.user_id}`,
+        url: profileUrl(data.user),
       },
       publisher: { '@type': 'Organization', name: 'atchannel', url: baseUrl },
       articleSection: data.channel_name,
@@ -272,7 +273,7 @@ onMounted(load)
 
         <div class="mt-3 flex items-center gap-2 text-sm text-slate-500">
           <RouterLink
-            :to="{ name: 'profile', params: { id: post.user.id } }"
+            :to="profileRoute(post.user)"
             class="flex items-center gap-2 hover:text-slate-900"
           >
             <AppAvatar :name="post.user.name" :avatar-url="post.user.avatar_url" size="sm" />
@@ -396,7 +397,7 @@ onMounted(load)
             class="rounded-xl border border-slate-200 bg-white p-4"
           >
             <div class="flex items-start gap-3">
-              <RouterLink :to="{ name: 'profile', params: { id: comment.user.id } }">
+              <RouterLink :to="profileRoute(comment.user)">
                 <AppAvatar
                   :name="comment.user.name"
                   :avatar-url="comment.user.avatar_url"
@@ -406,7 +407,7 @@ onMounted(load)
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2 text-sm">
                   <RouterLink
-                    :to="{ name: 'profile', params: { id: comment.user.id } }"
+                    :to="profileRoute(comment.user)"
                     class="font-medium text-slate-800 hover:text-indigo-700"
                   >
                     {{ comment.user.name }}
