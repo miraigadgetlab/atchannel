@@ -39,28 +39,16 @@ type Config struct {
 	// client can forge that header to escape per-IP rate limits.
 	TrustedProxies []string
 
-	// Transactional email. When SMTPHost is empty the app logs messages
-	// instead of sending them, so the flows are usable without a mail server.
-	SMTPHost     string
-	SMTPPort     int
-	SMTPUsername string
-	SMTPPassword string
-	MailFrom     string
-	// AppBaseURL prefixes the reset link placed in that email.
-	AppBaseURL string
-	// ResetTokenTTL is how long a password reset link stays valid.
-	ResetTokenTTL time.Duration
-
 	// Avatar uploads are stored on local disk under UploadDir and served back
 	// at /uploads/... Keep MaxAvatarBytes well under the HTTP body limit:
 	// avatars are meant to be tiny.
 	UploadDir      string
 	MaxAvatarBytes int64
 
-	// Bootstrap admin account. Seeding only happens when both
-	// AdminEmail and AdminPassword are provided.
+	// Bootstrap admin account. Seeding happens on boot when AdminPassword
+	// is set: the named account is created (or promoted) as an admin. There
+	// is no email — the name is the login identity.
 	AdminName     string
-	AdminEmail    string
 	AdminPassword string
 }
 
@@ -87,17 +75,9 @@ func LoadConfig() *Config {
 		WriteLimitMax:     envInt("WRITE_LIMIT_MAX", 30),
 		WriteLimitWindow:  envDuration("WRITE_LIMIT_WINDOW", time.Minute),
 		TrustedProxies:    parseList(os.Getenv("TRUSTED_PROXIES")),
-		SMTPHost:          os.Getenv("SMTP_HOST"),
-		SMTPPort:          envInt("SMTP_PORT", 587),
-		SMTPUsername:      os.Getenv("SMTP_USERNAME"),
-		SMTPPassword:      os.Getenv("SMTP_PASSWORD"),
-		MailFrom:          envString("MAIL_FROM", "no-reply@atchannel.local"),
-		AppBaseURL:        strings.TrimSuffix(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
-		ResetTokenTTL:     envDuration("RESET_TOKEN_TTL", time.Hour),
 		UploadDir:         envString("UPLOAD_DIR", "./uploads"),
 		MaxAvatarBytes:    envInt64("MAX_AVATAR_BYTES", 1<<20),
 		AdminName:         os.Getenv("ADMIN_NAME"),
-		AdminEmail:        os.Getenv("ADMIN_EMAIL"),
 		AdminPassword:     os.Getenv("ADMIN_PASSWORD"),
 	}
 
@@ -105,9 +85,8 @@ func LoadConfig() *Config {
 		cfg.AdminName = "admin"
 	}
 
-	if cfg.AdminEmail != "" && cfg.AdminPassword == "" {
-		log.Print("WARNING: ADMIN_EMAIL is set but ADMIN_PASSWORD is empty, skipping admin bootstrap")
-		cfg.AdminEmail = ""
+	if cfg.AdminPassword == "" {
+		log.Print("WARNING: ADMIN_PASSWORD is empty, skipping admin bootstrap")
 	}
 
 	log.Printf("CORS allowed origins: %v", cfg.AllowedOrigins)

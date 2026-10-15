@@ -14,7 +14,6 @@ import (
 func newClaims(userID, tokenType string, expiry time.Time) middleware.UserClaims {
 	return middleware.UserClaims{
 		UserID:    userID,
-		Email:     "a@example.com",
 		Roles:     []string{"user"},
 		TokenType: tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{

@@ -55,12 +55,10 @@ func svcErr(c fiber.Ctx, err error, fallback string) error {
 		return replyErr(c, fiber.StatusNotFound, "User not found")
 	case errors.Is(err, service.ErrChannelNameTaken):
 		return replyErr(c, fiber.StatusConflict, "A channel with this name already exists")
-	case errors.Is(err, service.ErrEmailTaken):
-		return replyErr(c, fiber.StatusConflict, "Email is already registered")
 	case errors.Is(err, service.ErrNameTaken):
 		return replyErr(c, fiber.StatusConflict, "This name is already taken")
 	case errors.Is(err, service.ErrInvalidCredentials):
-		return replyErr(c, fiber.StatusUnauthorized, "Invalid email or password")
+		return replyErr(c, fiber.StatusUnauthorized, "Invalid name or password")
 	case errors.Is(err, service.ErrCurrentPassword):
 		return replyErr(c, fiber.StatusBadRequest, "Current password is incorrect")
 	case errors.Is(err, service.ErrForbidden):

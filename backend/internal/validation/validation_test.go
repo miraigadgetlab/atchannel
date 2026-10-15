@@ -59,35 +59,6 @@ func TestNameError(t *testing.T) {
 	}
 }
 
-func TestEmailError(t *testing.T) {
-	valid := []string{"a@b.co", "first.last@example.com", "user+tag@sub.example.org"}
-
-	for _, email := range valid {
-		if got := EmailError(email); got != "" {
-			t.Errorf("EmailError(%q) = %q, want \"\"", email, got)
-		}
-	}
-
-	invalid := []struct {
-		email  string
-		reason string
-	}{
-		{"", "empty"},
-		{"abc", "no at sign"},
-		{"@example.com", "no local part"},
-		{"user@", "no domain"},
-		{"a@@b.com", "double at"},
-		{"a@b@c.com", "two at signs"},
-		{stringsRepeat("a", 250) + "@b.co", "too long"},
-	}
-
-	for _, tc := range invalid {
-		if got := EmailError(tc.email); got == "" {
-			t.Errorf("EmailError(%q) = \"\", want rejection (%s)", tc.email, tc.reason)
-		}
-	}
-}
-
 func TestPasswordError(t *testing.T) {
 	valid := []string{
 		"12345678",

@@ -14,13 +14,12 @@ import (
 )
 
 type LoginRequest struct {
-	Email    string `json:"email"`
+	Name     string `json:"name"`
 	Password string `json:"password"`
 }
 
 type RegisterRequest struct {
 	Name     string `json:"name"`
-	Email    string `json:"email"`
 	Password string `json:"password"`
 	// Note is an optional private message for the admins, visible only to the
 	// account owner and to admins.
@@ -51,28 +50,25 @@ func (h *AuthHandler) Register(c fiber.Ctx) error {
 	}
 
 	req.Name = strings.TrimSpace(req.Name)
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	req.Note = strings.TrimSpace(req.Note)
 
 	noteError := validation.TooLong("note", req.Note, validation.MaxNote)
 
 	switch {
-	case req.Name == "" || req.Email == "" || req.Password == "":
-		return replyBadRequest(c, "Name, email and password are required")
+	case req.Name == "" || req.Password == "":
+		return replyBadRequest(c, "Name and password are required")
 	case validation.NameError(req.Name) != "":
 		return replyBadRequest(c, validation.NameError(req.Name))
-	case validation.EmailError(req.Email) != "":
-		return replyBadRequest(c, validation.EmailError(req.Email))
 	case validation.PasswordError(req.Password) != "":
 		return replyBadRequest(c, validation.PasswordError(req.Password))
 	case noteError != "":
 		return replyBadRequest(c, noteError)
 	}
 
-	user, err := h.userService.Create(c.Context(), req.Name, req.Email, req.Password, req.Note)
+	user, err := h.userService.Create(c.Context(), req.Name, req.Password, req.Note)
 	if err != nil {
-		if errors.Is(err, service.ErrEmailTaken) {
-			return replyErr(c, fiber.StatusConflict, "An account with this email already exists")
+		if errors.Is(err, service.ErrNameTaken) {
+			return replyErr(c, fiber.StatusConflict, "An account with this name already exists")
 		}
 		return svcErr(c, err, "Failed to create account")
 	}
@@ -87,36 +83,35 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 		return replyBadRequest(c, "Invalid request payload format")
 	}
 
-	// Same normalization as register/profile: emails are stored lowercased,
-	// so login must look them up the same way or "User@Example.com" never
-	// matches the account it belongs to.
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	// Names are matched case-insensitively (see UserService.Authenticate), so
+	// only surrounding whitespace needs trimming here.
+	req.Name = strings.TrimSpace(req.Name)
 
-	if req.Email == "" || req.Password == "" {
-		return replyBadRequest(c, "Email and password are required")
+	if req.Name == "" || req.Password == "" {
+		return replyBadRequest(c, "Name and password are required")
 	}
 
 	// Account level lockout: even the right password stays rejected while
 	// the window is open, which is the whole point of the brake.
-	if wait, blocked := h.accountLimiter.Blocked(req.Email); blocked {
+	if wait, blocked := h.accountLimiter.Blocked(req.Name); blocked {
 		c.Set(fiber.HeaderRetryAfter, strconv.Itoa(int(wait.Seconds())+1))
 		return replyErr(c, fiber.StatusTooManyRequests, "Too many failed attempts for this account, try again later")
 	}
 
-	user, err := h.userService.Authenticate(c.Context(), req.Email, req.Password)
+	user, err := h.userService.Authenticate(c.Context(), req.Name, req.Password)
 	if err != nil {
-		h.accountLimiter.Fail(req.Email)
+		h.accountLimiter.Fail(req.Name)
 		if errors.Is(err, service.ErrAccountBanned) {
 			return replyErr(c, fiber.StatusForbidden, "This account has been suspended")
 		}
-		return replyErr(c, fiber.StatusUnauthorized, "Invalid email or password")
+		return replyErr(c, fiber.StatusUnauthorized, "Invalid name or password")
 	}
 
-	h.accountLimiter.Clear(req.Email)
+	h.accountLimiter.Clear(req.Name)
 
 	userIDStr := strconv.FormatUint(uint64(user.ID), 10)
 
-	tokens, err := h.tokenService.GenerateTokenPair(userIDStr, user.Email, user.Roles)
+	tokens, err := h.tokenService.GenerateTokenPair(userIDStr, user.Roles)
 	if err != nil {
 		return replyInternal(c, err, "Failed to generate security tokens")
 	}
@@ -156,7 +151,7 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 		return replyErr(c, fiber.StatusUnauthorized, "Refresh token is no longer valid")
 	}
 
-	tokens, err := h.tokenService.GenerateTokenPair(claims.UserID, claims.Email, claims.Roles)
+	tokens, err := h.tokenService.GenerateTokenPair(claims.UserID, claims.Roles)
 	if err != nil {
 		return replyInternal(c, err, "Failed to generate security tokens")
 	}

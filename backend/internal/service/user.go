@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"time"
 
@@ -14,8 +13,7 @@ import (
 )
 
 var (
-	ErrInvalidCredentials = errors.New("invalid email or password")
-	ErrEmailTaken         = errors.New("email is already registered")
+	ErrInvalidCredentials = errors.New("invalid name or password")
 	ErrNameTaken          = errors.New("name is already taken")
 	ErrUserNotFound       = errors.New("user not found")
 	ErrCurrentPassword    = errors.New("current password is incorrect")
@@ -26,7 +24,6 @@ var (
 // a nil field is left untouched.
 type UpdateProfileInput struct {
 	Name      *string
-	Email     *string
 	AboutMe   *string
 	AvatarURL *string
 	Note      *string
@@ -45,15 +42,8 @@ func NewUserService(db *gorm.DB) *UserService {
 	return &UserService{db: db}
 }
 
-func (s *UserService) Create(ctx context.Context, name, email, password, note string) (*models.User, error) {
+func (s *UserService) Create(ctx context.Context, name, password, note string) (*models.User, error) {
 	var count int64
-
-	if err := s.db.WithContext(ctx).Model(&models.User{}).Where("email = ?", email).Count(&count).Error; err != nil {
-		return nil, err
-	}
-	if count > 0 {
-		return nil, ErrEmailTaken
-	}
 
 	if err := s.db.WithContext(ctx).Model(&models.User{}).Where("lower(name) = lower(?)", name).Count(&count).Error; err != nil {
 		return nil, err
@@ -69,15 +59,17 @@ func (s *UserService) Create(ctx context.Context, name, email, password, note st
 
 	user := models.User{
 		Name:     name,
-		Email:    email,
 		Password: string(hashed),
 		Roles:    []string{"user"},
 		Note:     note,
 	}
 
 	if err := s.db.WithContext(ctx).Create(&user).Error; err != nil {
+		// The pre-insert check cannot win a race against a concurrent
+		// signup; catching the duplicate key closes the gap so the loser
+		// gets the same 409 instead of an opaque 500.
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return nil, s.identifierConflict(ctx, name, email)
+			return nil, ErrNameTaken
 		}
 		return nil, err
 	}
@@ -85,30 +77,10 @@ func (s *UserService) Create(ctx context.Context, name, email, password, note st
 	return &user, nil
 }
 
-// identifierConflict reports which unique column a duplicate-key error came
-// from. The pre-insert checks narrow it down but cannot win a race against a
-// concurrent signup; catching gorm.ErrDuplicatedKey closes the gap so the
-// loser gets the same 409 instead of an opaque 500.
-func (s *UserService) identifierConflict(ctx context.Context, name, email string) error {
-	var count int64
-
-	if err := s.db.WithContext(ctx).Model(&models.User{}).Where("email = ?", email).Count(&count).Error; err == nil && count > 0 {
-		return ErrEmailTaken
-	}
-	count = 0
-	if err := s.db.WithContext(ctx).Model(&models.User{}).Where("lower(name) = lower(?)", name).Count(&count).Error; err == nil && count > 0 {
-		return ErrNameTaken
-	}
-
-	// The only unique columns are name and email, so one of the checks above
-	// should have matched; fall back to the name conflict if not.
-	return ErrNameTaken
-}
-
-func (s *UserService) Authenticate(ctx context.Context, email, password string) (*models.User, error) {
+func (s *UserService) Authenticate(ctx context.Context, name, password string) (*models.User, error) {
 	var user models.User
 
-	err := s.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	err := s.db.WithContext(ctx).Where("lower(name) = lower(?)", name).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrInvalidCredentials
@@ -204,11 +176,11 @@ func (s *UserService) GetByID(ctx context.Context, userID uint) (*models.User, e
 	return &user, nil
 }
 
-// GetByEmail looks up an account by its (already normalized) email address.
-func (s *UserService) GetByEmail(ctx context.Context, email string) (*models.User, error) {
+// GetByName looks up an account by its display name (case-insensitively).
+func (s *UserService) GetByName(ctx context.Context, name string) (*models.User, error) {
 	var user models.User
 
-	if err := s.db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("lower(name) = lower(?)", name).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrUserNotFound
 		}
@@ -290,24 +262,22 @@ func (s *UserService) Channelers(ctx context.Context, limit, offset int) ([]Chan
 }
 
 // UpdateProfile applies only the provided fields; nil fields stay untouched.
-// Name and email are re-checked for uniqueness against every other account.
-// Changing the email additionally requires the current password, because the
-// email is the account's recovery identity: a borrowed session must not be
-// able to quietly redirect it.
+// The name is the account's login identity, so changing it requires the
+// current password: a borrowed session must not be able to quietly move the
+// account out from under its owner. Name uniqueness is re-checked against
+// every other account (case-insensitively).
 func (s *UserService) UpdateProfile(ctx context.Context, userID uint, currentPassword string, in UpdateProfileInput) (*models.User, error) {
 	user, err := s.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	emailChanging := in.Email != nil && *in.Email != user.Email
-	if emailChanging {
+	nameChanging := in.Name != nil && *in.Name != user.Name
+	if nameChanging {
 		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)); err != nil {
 			return nil, ErrCurrentPassword
 		}
-	}
 
-	if in.Name != nil && *in.Name != user.Name {
 		var count int64
 		if err := s.db.WithContext(ctx).Model(&models.User{}).
 			Where("lower(name) = lower(?) AND id <> ?", *in.Name, userID).Count(&count).Error; err != nil {
@@ -317,18 +287,6 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID uint, currentPas
 			return nil, ErrNameTaken
 		}
 		user.Name = *in.Name
-	}
-
-	if in.Email != nil && *in.Email != user.Email {
-		var count int64
-		if err := s.db.WithContext(ctx).Model(&models.User{}).
-			Where("email = ? AND id <> ?", *in.Email, userID).Count(&count).Error; err != nil {
-			return nil, err
-		}
-		if count > 0 {
-			return nil, ErrEmailTaken
-		}
-		user.Email = *in.Email
 	}
 
 	if in.AboutMe != nil {
@@ -343,7 +301,7 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID uint, currentPas
 
 	if err := s.db.WithContext(ctx).Save(user).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return nil, s.identifierConflict(ctx, user.Name, user.Email)
+			return nil, ErrNameTaken
 		}
 		return nil, err
 	}
@@ -422,9 +380,8 @@ func (s *UserService) Delete(ctx context.Context, userID uint) error {
 		if err := tx.Exec("DELETE FROM refresh_tokens WHERE user_id = ?", userID).Error; err != nil {
 			return err
 		}
-		// Reset and recovery-code tokens all live in email_tokens and only
-		// make sense for an account that exists.
-		if err := tx.Exec("DELETE FROM email_tokens WHERE user_id = ?", userID).Error; err != nil {
+		// Recovery codes only make sense for an account that exists.
+		if err := tx.Exec("DELETE FROM recovery_codes WHERE user_id = ?", userID).Error; err != nil {
 			return err
 		}
 		// notifications.actor_id references users(id), so these have to go
@@ -466,13 +423,15 @@ func (s *UserService) Delete(ctx context.Context, userID uint) error {
 	})
 }
 
-// EnsureAdmin creates the bootstrap admin account if it does not exist yet,
-// or promotes the existing account to admin. Name collisions are resolved by
-// appending a counter so a different user holding the name never blocks boot.
-func (s *UserService) EnsureAdmin(ctx context.Context, name, email, password string) (*models.User, error) {
+// EnsureAdmin creates the bootstrap admin account if it does not exist yet, or
+// promotes the existing account to admin. The name is the account's identity
+// now (there is no email), so a deployment that wants a pristine admin should
+// point ADMIN_NAME at a name nobody else has registered: an existing
+// non-admin account holding that name would be promoted.
+func (s *UserService) EnsureAdmin(ctx context.Context, name, password string) (*models.User, error) {
 	var user models.User
 
-	err := s.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	err := s.db.WithContext(ctx).Where("lower(name) = lower(?)", name).First(&user).Error
 	switch {
 	case err == nil:
 		if slices.Contains(user.Roles, "admin") {
@@ -492,29 +451,13 @@ func (s *UserService) EnsureAdmin(ctx context.Context, name, email, password str
 		return nil, err
 	}
 
-	for i := 0; ; i++ {
-		candidate := name
-		if i > 0 {
-			candidate = fmt.Sprintf("%s-%d", name, i+1)
-		}
-
-		var count int64
-		if err := s.db.WithContext(ctx).Model(&models.User{}).Where("lower(name) = lower(?)", candidate).Count(&count).Error; err != nil {
-			return nil, err
-		}
-		if count > 0 {
-			continue
-		}
-
-		admin := models.User{
-			Name:     candidate,
-			Email:    email,
-			Password: string(hashed),
-			Roles:    []string{"admin"},
-		}
-		if err := s.db.WithContext(ctx).Create(&admin).Error; err != nil {
-			return nil, err
-		}
-		return &admin, nil
+	admin := models.User{
+		Name:     name,
+		Password: string(hashed),
+		Roles:    []string{"admin"},
 	}
+	if err := s.db.WithContext(ctx).Create(&admin).Error; err != nil {
+		return nil, err
+	}
+	return &admin, nil
 }

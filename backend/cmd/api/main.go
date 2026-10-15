@@ -14,7 +14,6 @@ import (
 	"atchannel-backend/internal/config"
 	"atchannel-backend/internal/db"
 	"atchannel-backend/internal/handler"
-	"atchannel-backend/internal/mailer"
 	"atchannel-backend/internal/middleware"
 	"atchannel-backend/internal/router"
 	"atchannel-backend/internal/service"
@@ -46,22 +45,22 @@ func main() {
 	statsService := service.NewStatsService(db.DB)
 	sessionService := service.NewSessionService(db.DB)
 
-	// Transactional email: SMTP when configured, otherwise log-only so the
-	// password reset flow works in development.
-	accountMailer := mailer.New(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.MailFrom)
-	accountService := service.NewAccountService(db.DB, userService, sessionService, accountMailer, cfg.AppBaseURL, cfg.ResetTokenTTL)
+	// Password recovery is code-based: a one-time code the user generated
+	// from their settings (or an admin generated for them) is exchanged for
+	// a new password. No email involved.
+	accountService := service.NewAccountService(db.DB, userService, sessionService)
 
 	// Dead refresh tokens are pruned on a schedule: Record only clears the
 	// rows of users who log in again, so abandoned accounts would otherwise
 	// accumulate expired sessions forever.
 	go runTokenPruner(sessionService)
 
-	if cfg.AdminEmail != "" && cfg.AdminPassword != "" {
-		admin, err := userService.EnsureAdmin(context.Background(), cfg.AdminName, cfg.AdminEmail, cfg.AdminPassword)
+	if cfg.AdminPassword != "" {
+		admin, err := userService.EnsureAdmin(context.Background(), cfg.AdminName, cfg.AdminPassword)
 		if err != nil {
 			log.Fatalf("admin bootstrap failed: %v", err)
 		}
-		log.Printf("admin account ready: %s <%s> roles=%v", admin.Name, admin.Email, admin.Roles)
+		log.Printf("admin account ready: %s roles=%v", admin.Name, admin.Roles)
 	}
 
 	accountLimiter := middleware.NewAccountLimiter(cfg.AccountLockMax, cfg.AccountLockWindow)

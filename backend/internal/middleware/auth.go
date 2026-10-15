@@ -11,7 +11,6 @@ import (
 
 type UserClaims struct {
 	UserID    string   `json:"user_id"`
-	Email     string   `json:"email"`
 	Roles     []string `json:"roles"`
 	TokenType string   `json:"token_type"`
 	jwt.RegisteredClaims

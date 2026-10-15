@@ -36,7 +36,6 @@ services:
       - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in deploy/.env}
       - JWT_ISSUER=${JWT_ISSUER:-atchannel}
       - ADMIN_NAME=${ADMIN_NAME:-}
-      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       # comma separated origins, "*" for any (tighten this in production)
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
@@ -51,14 +50,6 @@ services:
       # content creation (posts/comments/channels) per user per window
       - WRITE_LIMIT_MAX=${WRITE_LIMIT_MAX:-30}
       - WRITE_LIMIT_WINDOW=${WRITE_LIMIT_WINDOW:-1m}
-      # transactional email; empty SMTP_HOST logs emails instead of sending
-      - SMTP_HOST=${SMTP_HOST:-}
-      - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_USERNAME=${SMTP_USERNAME:-}
-      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
-      - MAIL_FROM=${MAIL_FROM:-no-reply@atchannel.local}
-      - APP_BASE_URL=${APP_BASE_URL:-http://localhost:5173}
-      - RESET_TOKEN_TTL=${RESET_TOKEN_TTL:-1h}
       # avatar uploads: persisted on a named volume so they survive restarts
       - UPLOAD_DIR=${UPLOAD_DIR:-/app/uploads}
       - MAX_AVATAR_BYTES=${MAX_AVATAR_BYTES:-1048576}

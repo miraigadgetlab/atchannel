@@ -11,7 +11,7 @@ import (
 func TestTokenPairRoundTrip(t *testing.T) {
 	svc := NewTokenService([]byte("test-secret"), "atchannel")
 
-	pair, err := svc.GenerateTokenPair("42", "a@example.com", []string{"user", "admin"})
+	pair, err := svc.GenerateTokenPair("42", []string{"user", "admin"})
 	if err != nil {
 		t.Fatalf("GenerateTokenPair: %v", err)
 	}
@@ -20,8 +20,8 @@ func TestTokenPairRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValidateToken(access): %v", err)
 	}
-	if access.UserID != "42" || access.Email != "a@example.com" || access.TokenType != "access" {
-		t.Errorf("access claims = %+v, want user 42 / a@example.com / access", access)
+	if access.UserID != "42" || access.TokenType != "access" {
+		t.Errorf("access claims = %+v, want user 42 / access", access)
 	}
 	if len(access.Roles) != 2 || access.Roles[1] != "admin" {
 		t.Errorf("access roles = %v, want [user admin]", access.Roles)
@@ -41,7 +41,7 @@ func TestTokenPairRoundTrip(t *testing.T) {
 func TestTokenTypeIsEnforced(t *testing.T) {
 	svc := NewTokenService([]byte("test-secret"), "atchannel")
 
-	pair, err := svc.GenerateTokenPair("1", "a@example.com", []string{"user"})
+	pair, err := svc.GenerateTokenPair("1", []string{"user"})
 	if err != nil {
 		t.Fatalf("GenerateTokenPair: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestTokenSignedWithOtherSecretIsRejected(t *testing.T) {
 	good := NewTokenService([]byte("test-secret"), "atchannel")
 	other := NewTokenService([]byte("different-secret"), "atchannel")
 
-	pair, err := other.GenerateTokenPair("1", "a@example.com", []string{"user"})
+	pair, err := other.GenerateTokenPair("1", []string{"user"})
 	if err != nil {
 		t.Fatalf("GenerateTokenPair: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestExpiredTokenIsRejected(t *testing.T) {
 func TestTamperedTokenIsRejected(t *testing.T) {
 	svc := NewTokenService([]byte("test-secret"), "atchannel")
 
-	pair, err := svc.GenerateTokenPair("1", "a@example.com", []string{"user"})
+	pair, err := svc.GenerateTokenPair("1", []string{"user"})
 	if err != nil {
 		t.Fatalf("GenerateTokenPair: %v", err)
 	}

@@ -3,7 +3,6 @@ package validation
 import (
 	"fmt"
 	"regexp"
-	"strings"
 	"unicode/utf8"
 )
 
@@ -73,26 +72,6 @@ func NameError(name string) string {
 		return "name must be 3-32 characters long"
 	case !DisplayName.MatchString(name):
 		return "name must start with a letter or number, and may only contain letters, numbers, dot, hyphen or underscore"
-	default:
-		return ""
-	}
-}
-
-// EmailError is deliberately permissive: a full RFC 5322 check rejects
-// legitimate addresses, and the only real proof is a confirmation link.
-// This just rejects obvious garbage.
-func EmailError(email string) string {
-	at := strings.Index(email, "@")
-
-	switch {
-	case Length(email) < 3 || Length(email) > 254:
-		return "email must be 3-254 characters long"
-	case at <= 0:
-		return "invalid email address"
-	case strings.Count(email, "@") != 1:
-		return "invalid email address"
-	case at == len(email)-1:
-		return "invalid email address"
 	default:
 		return ""
 	}

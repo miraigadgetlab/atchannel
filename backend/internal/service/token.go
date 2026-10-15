@@ -36,7 +36,7 @@ func NewTokenService(secretKey []byte, issuer string) *TokenService {
 	}
 }
 
-func (s *TokenService) GenerateTokenPair(userID, email string, roles []string) (*TokenPair, error) {
+func (s *TokenService) GenerateTokenPair(userID string, roles []string) (*TokenPair, error) {
 	now := time.Now()
 	accessExpiry := now.Add(15 * time.Minute)
 	refreshExpiry := now.Add(7 * 24 * time.Hour)
@@ -44,7 +44,6 @@ func (s *TokenService) GenerateTokenPair(userID, email string, roles []string) (
 	// Access Token (Short-lived)
 	accessClaims := middleware.UserClaims{
 		UserID:    userID,
-		Email:     email,
 		Roles:     roles,
 		TokenType: "access",
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -66,7 +65,6 @@ func (s *TokenService) GenerateTokenPair(userID, email string, roles []string) (
 	// Refresh Token (Long-lived)
 	refreshClaims := middleware.UserClaims{
 		UserID:    userID,
-		Email:     email,
 		Roles:     roles,
 		TokenType: "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{

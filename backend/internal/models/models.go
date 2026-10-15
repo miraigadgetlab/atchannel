@@ -5,7 +5,6 @@ import "time"
 type User struct {
 	ID        uint        `gorm:"primaryKey" json:"id"`
 	Name      string      `gorm:"uniqueIndex;not null" json:"name"`
-	Email     string      `gorm:"uniqueIndex;not null" json:"email" db:"email"`
 	Password  string      `json:"-" db:"password"`
 	Roles     StringArray `gorm:"type:text[];not null;default:'{}'" json:"roles"`
 	AboutMe   string      `json:"about_me"`
@@ -22,16 +21,14 @@ type User struct {
 	BannedAt *time.Time `json:"banned_at,omitempty"`
 }
 
-// EmailToken is a single-use, hashed token for a password reset link or an
-// account recovery code. Only the SHA-256 is stored, so a database leak cannot
-// be replayed. Kind separates the flows, so a reset link can never be replayed
-// as a recovery code, or vice versa.
-type EmailToken struct {
+// RecoveryCode is a single-use, hashed account-recovery code. Only the
+// SHA-256 is stored, so a database leak cannot be replayed. Codes do not
+// expire: each stays valid until it is used or the owner regenerates the
+// batch (see AccountService).
+type RecoveryCode struct {
 	ID        uint       `gorm:"primaryKey" json:"-"`
 	UserID    uint       `gorm:"not null;index" json:"-"`
 	TokenHash string     `gorm:"not null;uniqueIndex" json:"-"`
-	Kind      string     `gorm:"not null;index" json:"-"`
-	ExpiresAt time.Time  `gorm:"not null;index" json:"-"`
 	UsedAt    *time.Time `json:"-"`
 	CreatedAt time.Time  `json:"-"`
 }

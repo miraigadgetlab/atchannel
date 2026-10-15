@@ -19,7 +19,6 @@ const (
 
 type UpdateProfileRequest struct {
 	Name            *string `json:"name"`
-	Email           *string `json:"email"`
 	AboutMe         *string `json:"about_me"`
 	AvatarURL       *string `json:"avatar_url"`
 	Note            *string `json:"note"`
@@ -123,8 +122,8 @@ func (h *ProfileHandler) Update(c fiber.Ctx) error {
 		return replyBadRequest(c, "Invalid request payload format")
 	}
 
-	if req.Name == nil && req.Email == nil && req.AboutMe == nil && req.AvatarURL == nil && req.Note == nil {
-		return replyBadRequest(c, "Nothing to update: provide name, email, about_me, avatar_url and/or note")
+	if req.Name == nil && req.AboutMe == nil && req.AvatarURL == nil && req.Note == nil {
+		return replyBadRequest(c, "Nothing to update: provide name, about_me, avatar_url and/or note")
 	}
 
 	if req.Name != nil {
@@ -133,14 +132,6 @@ func (h *ProfileHandler) Update(c fiber.Ctx) error {
 			return replyBadRequest(c, msg)
 		}
 		req.Name = &trimmed
-	}
-
-	if req.Email != nil {
-		trimmed := strings.ToLower(strings.TrimSpace(*req.Email))
-		if msg := validation.EmailError(trimmed); msg != "" {
-			return replyBadRequest(c, msg)
-		}
-		req.Email = &trimmed
 	}
 
 	if req.AboutMe != nil && validation.Length(*req.AboutMe) > maxAboutMeLength {
@@ -175,7 +166,6 @@ func (h *ProfileHandler) Update(c fiber.Ctx) error {
 
 	user, err := h.userService.UpdateProfile(c.Context(), userID, currentPassword, service.UpdateProfileInput{
 		Name:      req.Name,
-		Email:     req.Email,
 		AboutMe:   req.AboutMe,
 		AvatarURL: req.AvatarURL,
 		Note:      req.Note,
@@ -183,9 +173,9 @@ func (h *ProfileHandler) Update(c fiber.Ctx) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrCurrentPassword):
-			return replyErr(c, fiber.StatusUnauthorized, "Current password is incorrect (required to change email)")
-		case errors.Is(err, service.ErrEmailTaken):
-			return replyErr(c, fiber.StatusConflict, "An account with this email already exists")
+			return replyErr(c, fiber.StatusUnauthorized, "Current password is incorrect (required to change your name)")
+		case errors.Is(err, service.ErrNameTaken):
+			return replyErr(c, fiber.StatusConflict, "An account with this name already exists")
 		case errors.Is(err, service.ErrUserNotFound):
 			return replyErr(c, fiber.StatusUnauthorized, "Account no longer exists")
 		default:

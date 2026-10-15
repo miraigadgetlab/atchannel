@@ -94,8 +94,8 @@ func NewAccountLimiter(max int, window time.Duration) *AccountLimiter {
 
 // Blocked reports how long the account must wait before trying again.
 // The second return value is false when attempts are still allowed.
-func (a *AccountLimiter) Blocked(email string) (time.Duration, bool) {
-	key := normalizeEmail(email)
+func (a *AccountLimiter) Blocked(name string) (time.Duration, bool) {
+	key := normalizeAccount(name)
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -118,8 +118,8 @@ func (a *AccountLimiter) Blocked(email string) (time.Duration, bool) {
 }
 
 // Fail records a rejected login attempt.
-func (a *AccountLimiter) Fail(email string) {
-	key := normalizeEmail(email)
+func (a *AccountLimiter) Fail(name string) {
+	key := normalizeAccount(name)
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -145,14 +145,16 @@ func (a *AccountLimiter) Fail(email string) {
 
 // Clear forgets the counter after a successful login, so legitimate
 // users who typo a password once do not carry the penalty forever.
-func (a *AccountLimiter) Clear(email string) {
-	key := normalizeEmail(email)
+func (a *AccountLimiter) Clear(name string) {
+	key := normalizeAccount(name)
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	delete(a.hits, key)
 }
 
-func normalizeEmail(email string) string {
-	return strings.ToLower(strings.TrimSpace(email))
+// normalizeAccount folds the account name to the form used as a limiter key:
+// trimmed and lower-cased, matching the case-insensitive login lookup.
+func normalizeAccount(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
 }

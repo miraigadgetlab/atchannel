@@ -9,7 +9,7 @@ import (
 )
 
 // The author view embedded in posts/comments must never carry the private
-// account fields — this is the regression guard for the email leak.
+// account fields — this is the regression guard for private-field leaks.
 func TestPostResponseHidesPrivateUserFields(t *testing.T) {
 	post := models.Post{
 		ID:      1,
@@ -18,7 +18,6 @@ func TestPostResponseHidesPrivateUserFields(t *testing.T) {
 		User: models.User{
 			ID:       2,
 			Name:     "alice",
-			Email:    "alice@example.com",
 			Password: "bcrypt-hash",
 			Roles:    []string{"admin"},
 			Note:     "private admin note",
@@ -31,7 +30,7 @@ func TestPostResponseHidesPrivateUserFields(t *testing.T) {
 	}
 	body := string(raw)
 
-	for _, secret := range []string{"alice@example.com", "bcrypt-hash", "private admin note", `"email"`, `"password"`, `"roles"`, `"note"`} {
+	for _, secret := range []string{"bcrypt-hash", "private admin note", `"password"`, `"roles"`, `"note"`} {
 		if strings.Contains(body, secret) {
 			t.Errorf("serialized post leaks %q: %s", secret, body)
 		}
@@ -42,12 +41,11 @@ func TestPostResponseHidesPrivateUserFields(t *testing.T) {
 }
 
 // The channeler leaderboard is public like the author view, so it must not
-// leak the private account fields either (email, roles, password hash).
+// leak the private account fields either (roles, password hash, note).
 func TestChannelerResponseHidesPrivateUserFields(t *testing.T) {
 	user := models.User{
 		ID:       3,
 		Name:     "carol",
-		Email:    "carol@example.com",
 		Password: "bcrypt-hash",
 		Roles:    []string{"moderator"},
 		Note:     "private admin note",
@@ -59,7 +57,7 @@ func TestChannelerResponseHidesPrivateUserFields(t *testing.T) {
 	}
 	body := string(raw)
 
-	for _, secret := range []string{"carol@example.com", "bcrypt-hash", "private admin note", `"email"`, `"password"`, `"roles"`, `"note"`} {
+	for _, secret := range []string{"bcrypt-hash", "private admin note", `"password"`, `"roles"`, `"note"`} {
 		if strings.Contains(body, secret) {
 			t.Errorf("serialized channeler leaks %q: %s", secret, body)
 		}
@@ -76,7 +74,6 @@ func TestCommentResponseHidesPrivateUserFields(t *testing.T) {
 		User: models.User{
 			ID:       2,
 			Name:     "bob",
-			Email:    "bob@example.com",
 			Password: "bcrypt-hash",
 			Roles:    []string{"admin"},
 			Note:     "private admin note",
@@ -89,7 +86,7 @@ func TestCommentResponseHidesPrivateUserFields(t *testing.T) {
 	}
 	body := string(raw)
 
-	for _, secret := range []string{"bob@example.com", "bcrypt-hash", "private admin note", `"email"`, `"password"`, `"roles"`, `"note"`} {
+	for _, secret := range []string{"bcrypt-hash", "private admin note", `"password"`, `"roles"`, `"note"`} {
 		if strings.Contains(body, secret) {
 			t.Errorf("serialized comment leaks %q: %s", secret, body)
 		}

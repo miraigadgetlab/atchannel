@@ -84,9 +84,9 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	// failures (a legit user must never lock themselves out by succeeding).
 	registerLimit := middleware.NewAuthRateLimiter(deps.Config.RateLimitMax, deps.Config.RateLimitWindow, false)
 	loginLimit := middleware.NewAuthRateLimiter(deps.Config.RateLimitMax, deps.Config.RateLimitWindow, true)
-	// Password-reset requests are counted even when they succeed: the point is
-	// to cap how fast an address can be probed / spammed.
-	forgotLimit := middleware.NewAuthRateLimiter(deps.Config.RateLimitMax, deps.Config.RateLimitWindow, false)
+	// Password-reset attempts are counted even when they succeed: the point
+	// is to cap how fast recovery codes can be guessed / probed.
+	recoveryLimit := middleware.NewAuthRateLimiter(deps.Config.RateLimitMax, deps.Config.RateLimitWindow, false)
 
 	// Content creation is throttled per user, not per IP: it caps how fast
 	// a single account can flood the site regardless of where it connects
@@ -106,9 +106,7 @@ func SetupRoutes(app *fiber.App, deps RouterDeps) {
 	api.Post("/auth/login", loginLimit, deps.AuthHandler.Login)
 	api.Post("/auth/refresh", deps.AuthHandler.Refresh)
 	api.Post("/auth/logout", deps.AuthHandler.Logout)
-	api.Post("/auth/forgot-password", forgotLimit, deps.AccountHandler.ForgotPassword)
-	api.Post("/auth/reset-password", forgotLimit, deps.AccountHandler.ResetPassword)
-	api.Post("/auth/reset-password-code", forgotLimit, deps.AccountHandler.ResetPasswordWithCode)
+	api.Post("/auth/reset-password-code", recoveryLimit, deps.AccountHandler.ResetPasswordWithCode)
 
 	api.Get("/channels", deps.ChannelHandler.List)
 	api.Get("/channels/:id", deps.ChannelHandler.GetByID)

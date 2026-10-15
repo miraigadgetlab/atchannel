@@ -7,9 +7,9 @@ import (
 )
 
 // PublicUser is the author view embedded in posts and comments. It
-// deliberately omits email, roles and the password hash: those are private,
-// and serializing the raw models.User used to leak every author's email to
-// anyone who could list posts or comments.
+// deliberately omits roles, the password hash and the private note: those are
+// private, and serializing the raw models.User used to leak them to anyone who
+// could list posts or comments.
 type PublicUser struct {
 	ID        uint   `json:"id"`
 	Name      string `json:"name"`
@@ -40,8 +40,8 @@ type PublicProfile struct {
 }
 
 // ChannelerResponse is one leaderboard entry: an account's public fields plus
-// how many posts it has written. Like PublicUser it deliberately omits email,
-// roles and the password hash.
+// how many posts it has written. Like PublicUser it deliberately omits roles,
+// the password hash and the private note.
 type ChannelerResponse struct {
 	ID        uint   `json:"id"`
 	Name      string `json:"name"`

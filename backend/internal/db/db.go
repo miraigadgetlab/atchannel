@@ -92,6 +92,9 @@ func Migrate() {
 	// The account table was renamed along with its model; this has to run
 	// first, because everything below looks at the new name.
 	renameTable("channelers", "users")
+	// Password reset by emailed link was removed, leaving only recovery
+	// codes. Rename the token table to match what it now holds.
+	renameTable("email_tokens", "recovery_codes")
 
 	// AutoMigrate can only create a NOT NULL column on an empty table, so
 	// every column that has to be backfilled is added here first. See
@@ -116,9 +119,15 @@ func Migrate() {
 	ensureSearchIndexes()
 	ensureUserNameIndex()
 
-	// Email verification was removed from the product; drop its now-unused
-	// column so the schema matches the models exactly.
+	// Email was removed from the product (registration and login are now
+	// name-based, recovery is a code): drop the columns that carried it so
+	// the schema matches the models exactly.
+	dropColumn("users", "email")
 	dropColumn("users", "email_verified_at")
+	// Recovery codes are the only token kind left and they never expire, so
+	// the discriminators that used to separate the flows are dead weight.
+	dropColumn("recovery_codes", "kind")
+	dropColumn("recovery_codes", "expires_at")
 
 	err := DB.AutoMigrate(
 		&models.User{},
@@ -126,7 +135,7 @@ func Migrate() {
 		&models.Post{},
 		&models.Comment{},
 		&models.RefreshToken{},
-		&models.EmailToken{},
+		&models.RecoveryCode{},
 		&models.PostLike{},
 		&models.Notification{},
 	)
