@@ -33,10 +33,15 @@ async function logout(): Promise<void> {
 
 <template>
   <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
-    <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
-      <RouterLink to="/" class="brand text-indigo-700"> atchannel </RouterLink>
+    <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+      <RouterLink to="/" class="order-1 brand text-indigo-700"> atchannel </RouterLink>
 
-      <nav class="flex items-center gap-3 text-sm font-medium text-slate-600">
+      <!-- On narrow screens the nav drops to its own row (order-3, w-full)
+           while brand and the account controls share the top row, so the two
+           never collide the way they did when everything wrapped together. -->
+      <nav
+        class="order-3 flex w-full items-center gap-3 text-sm font-medium text-slate-600 sm:order-2 sm:w-auto"
+      >
         <RouterLink to="/" class="hover:text-slate-900" exact-active-class="nav-active">
           Feed
         </RouterLink>
@@ -48,7 +53,7 @@ async function logout(): Promise<void> {
         </RouterLink>
       </nav>
 
-      <div class="ml-auto flex items-center gap-2">
+      <div class="order-2 ml-auto flex items-center gap-2 sm:order-3">
         <template v-if="auth.isAuthenticated">
           <RouterLink
             :to="{ name: 'post-new' }"

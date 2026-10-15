@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import AppPagination from '@/components/AppPagination.vue'
 import AppSpinner from '@/components/AppSpinner.vue'
@@ -22,7 +22,6 @@ const loading = ref(true)
 const error = ref('')
 
 const sort = ref<PostSort>((route.query.sort as PostSort) ?? 'new')
-const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 
 async function load(): Promise<void> {
   loading.value = true
@@ -41,11 +40,11 @@ async function load(): Promise<void> {
   }
 }
 
-function applyFilters(): void {
+function applySort(): void {
   void router.push({
     name: 'home',
     query: {
-      ...(search.value ? { q: search.value } : {}),
+      ...(route.query.q ? { q: route.query.q as string } : {}),
       ...(sort.value !== 'new' ? { sort: sort.value } : {}),
     },
   })
@@ -62,7 +61,6 @@ watch(
   () => route.query,
   () => {
     offset.value = 0
-    search.value = typeof route.query.q === 'string' ? route.query.q : ''
     sort.value = (route.query.sort as PostSort) ?? 'new'
     void load()
   },
@@ -74,28 +72,15 @@ onMounted(load)
 <template>
   <div>
     <div class="mb-6 flex flex-wrap items-center gap-2">
-      <input
-        v-model="search"
-        type="search"
-        placeholder="Search…"
-        class="w-40 rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-        @keyup.enter="applyFilters"
-      />
       <select
         v-model="sort"
         class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
-        @change="applyFilters"
+        @change="applySort"
       >
         <option value="new">Newest</option>
         <option value="old">Oldest</option>
         <option value="top">Most liked</option>
       </select>
-      <RouterLink
-        :to="{ name: 'post-new' }"
-        class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
-      >
-        New post
-      </RouterLink>
     </div>
 
     <AppSpinner v-if="loading" />
